@@ -1,0 +1,144 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Member {
+  id            String    @id @default(uuid())
+  fullName      String
+  email         String?   @unique
+  phone         String?
+  birthDate     DateTime?
+  address       String?
+  city          String?
+  state         String?
+  role          String? // Ex: membro, líder, pastor
+  maritalStatus String? // Ex: solteiro, casado
+  createdAt     DateTime  @default(now())
+  active        Boolean   @default(true)
+
+  ministries Ministry[] @relation("MinistryMembers")
+  schedules  Schedule[] @relation("ScheduleMembers")
+}
+
+model User {
+  id           String   @id @default(uuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+  role         Role     @default(MEMBER)
+  createdAt    DateTime @default(now())
+  active       Boolean  @default(true)
+
+  transactions  Transaction[]
+  ministriesLed Ministry[]    @relation("MinistryLeader")
+
+  Event Event[]
+
+  Visitor Visitor[]
+
+  sentMessages     Message[] @relation("SentMessages")
+  receivedMessages Message[] @relation("ReceivedMessages")
+}
+
+enum Role {
+  ADMIN
+  LEADER
+  MEMBER
+}
+
+model Transaction {
+  id          String          @id @default(uuid())
+  type        TransactionType
+  description String
+  amount      Float
+  date        DateTime
+  category    String?
+  createdBy   User            @relation(fields: [createdById], references: [id])
+  createdById String
+  createdAt   DateTime        @default(now())
+}
+
+enum TransactionType {
+  INCOME
+  EXPENSE
+}
+
+model Schedule {
+  id         String   @id @default(uuid())
+  ministryId String
+  ministry   Ministry @relation(fields: [ministryId], references: [id])
+  date       DateTime
+  location   String
+  notes      String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  members Member[] @relation("ScheduleMembers")
+}
+
+model Ministry {
+  id          String     @id @default(uuid())
+  name        String
+  leaderId    String?
+  description String?
+  leader      User?      @relation("MinistryLeader", fields: [leaderId], references: [id])
+  members     Member[]   @relation("MinistryMembers")
+  schedules   Schedule[]
+  active      Boolean    @default(true)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+}
+
+model Event {
+  id          String   @id @default(uuid())
+  title       String
+  description String?
+  date        DateTime
+  location    String
+  createdBy   User     @relation(fields: [createdById], references: [id])
+  createdById String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Visitor {
+  id        String   @id @default(uuid())
+  name      String
+  phone     String?
+  email     String?
+  notes     String?
+  visitDate DateTime @default(now())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  wasContacted  Boolean   @default(false)
+  contactedAt   DateTime?
+  contactNotes  String?
+  contactedById String?
+  contactedBy   User?     @relation(fields: [contactedById], references: [id])
+
+  active Boolean @default(true)
+}
+
+model Message {
+  id         String   @id @default(uuid())
+  sender     User     @relation("SentMessages", fields: [senderId], references: [id])
+  senderId   String
+  receiver   User     @relation("ReceivedMessages", fields: [receiverId], references: [id])
+  receiverId String
+  content    String
+  read       Boolean  @default(false)
+  createdAt  DateTime @default(now())
+}
