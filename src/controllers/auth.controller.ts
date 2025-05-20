@@ -50,8 +50,9 @@ export async function login(req: Request, res: Response) {
 
     const user = await prisma.user.findUnique({ where: { email } })
 
+
     if (!user || !user.active) {
-        return res.status(401).json({ error: 'Credenciais inválidas ou usuário inativo' })
+      return res.status(401).json({ error: 'Credenciais inválidas ou usuário inativo' })
     }
 
     if (!user) {

@@ -209,7 +209,36 @@ exports.Prisma.MessageScalarFieldEnum = {
   receiverId: 'receiverId',
   content: 'content',
   read: 'read',
-  createdAt: 'createdAt'
+  createdAt: 'createdAt',
+  readAt: 'readAt'
+};
+
+exports.Prisma.NoticeScalarFieldEnum = {
+  id: 'id',
+  title: 'title',
+  content: 'content',
+  createdAt: 'createdAt',
+  createdById: 'createdById',
+  deletedAt: 'deletedAt'
+};
+
+exports.Prisma.NotificationScalarFieldEnum = {
+  id: 'id',
+  content: 'content',
+  read: 'read',
+  createdAt: 'createdAt',
+  userId: 'userId'
+};
+
+exports.Prisma.AppointmentScalarFieldEnum = {
+  id: 'id',
+  title: 'title',
+  description: 'description',
+  date: 'date',
+  location: 'location',
+  createdById: 'createdById',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
 };
 
 exports.Prisma.SortOrder = {
@@ -245,7 +274,10 @@ exports.Prisma.ModelName = {
   Ministry: 'Ministry',
   Event: 'Event',
   Visitor: 'Visitor',
-  Message: 'Message'
+  Message: 'Message',
+  Notice: 'Notice',
+  Notification: 'Notification',
+  Appointment: 'Appointment'
 };
 
 /**
