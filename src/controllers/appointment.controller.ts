@@ -261,7 +261,7 @@ export async function getAttendees(req: Request, res: Response) {
     })
 
     // Formatando um pouco a resposta para facilitar uso no front
-    const formattedAttendees = attendees.map(att => ({
+    const formattedAttendees = attendees.map((att: any) => ({
       memberId: att.member.id,
       fullName: att.member.fullName,
       email: att.member.email,
