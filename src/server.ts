@@ -14,6 +14,11 @@ import messageRoutes from './routes/message.routes'
 import { noticeRoutes } from './routes/notice.routes'
 import notificationRoutes from './routes/notification.routes'
 import { appointmentRoutes } from './routes/appointment.routes'
+import permissionRoutes from './routes/permission.routes'
+import emailRoutes from './routes/email.routes'
+import cultRoutes from './routes/cult.routes'
+import cultScheduleRoutes from './routes/cultSchedule.routes'
+import uploadRoutes from './routes/upload.routes'
 
 dotenv.config()
 
@@ -36,7 +41,12 @@ app.use('/messages', messageRoutes)
 app.use('/notices', noticeRoutes)
 app.use('/notifications', notificationRoutes)
 app.use('/appointments', appointmentRoutes)
+app.use('/admin/permissions', permissionRoutes)
+app.use('/emails', emailRoutes)
+app.use('/cults', cultRoutes)
+app.use('/cult-schedules', cultScheduleRoutes)
 
+app.use('/upload', uploadRoutes)
 
 app.listen(PORT, () => {
   console.log(`Servidor rodando em http://localhost:${PORT}`)

@@ -140,9 +140,14 @@ exports.Prisma.UserScalarFieldEnum = {
   name: 'name',
   email: 'email',
   passwordHash: 'passwordHash',
+  avatar: 'avatar',
   role: 'role',
   createdAt: 'createdAt',
-  active: 'active'
+  active: 'active',
+  firstLogin: 'firstLogin',
+  resetToken: 'resetToken',
+  resetTokenExpiry: 'resetTokenExpiry',
+  memberId: 'memberId'
 };
 
 exports.Prisma.TransactionScalarFieldEnum = {
@@ -224,10 +229,16 @@ exports.Prisma.NoticeScalarFieldEnum = {
 
 exports.Prisma.NotificationScalarFieldEnum = {
   id: 'id',
+  userId: 'userId',
   content: 'content',
+  target: 'target',
+  image: 'image',
+  type: 'type',
+  location: 'location',
+  locationLabel: 'locationLabel',
+  status: 'status',
   read: 'read',
-  createdAt: 'createdAt',
-  userId: 'userId'
+  createdAt: 'createdAt'
 };
 
 exports.Prisma.AppointmentScalarFieldEnum = {
@@ -237,6 +248,114 @@ exports.Prisma.AppointmentScalarFieldEnum = {
   date: 'date',
   location: 'location',
   createdById: 'createdById',
+  active: 'active',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+};
+
+exports.Prisma.AppointmentMemberScalarFieldEnum = {
+  id: 'id',
+  appointmentId: 'appointmentId',
+  memberId: 'memberId',
+  confirmed: 'confirmed',
+  confirmedAt: 'confirmedAt'
+};
+
+exports.Prisma.PermissionScalarFieldEnum = {
+  id: 'id',
+  name: 'name',
+  createdAt: 'createdAt'
+};
+
+exports.Prisma.RolePermissionScalarFieldEnum = {
+  id: 'id',
+  role: 'role',
+  permissionId: 'permissionId'
+};
+
+exports.Prisma.PasswordResetTokenScalarFieldEnum = {
+  id: 'id',
+  token: 'token',
+  userId: 'userId',
+  expiresAt: 'expiresAt',
+  createdAt: 'createdAt'
+};
+
+exports.Prisma.EmailScalarFieldEnum = {
+  id: 'id',
+  senderId: 'senderId',
+  subject: 'subject',
+  createdAt: 'createdAt',
+  starred: 'starred',
+  flagged: 'flagged',
+  group: 'group'
+};
+
+exports.Prisma.EmailMessageScalarFieldEnum = {
+  id: 'id',
+  emailId: 'emailId',
+  senderId: 'senderId',
+  content: 'content',
+  createdAt: 'createdAt'
+};
+
+exports.Prisma.AttachmentScalarFieldEnum = {
+  id: 'id',
+  file: 'file',
+  type: 'type',
+  size: 'size',
+  messageId: 'messageId'
+};
+
+exports.Prisma.EmailRecipientScalarFieldEnum = {
+  id: 'id',
+  emailId: 'emailId',
+  userId: 'userId',
+  read: 'read',
+  flagged: 'flagged',
+  starred: 'starred',
+  readAt: 'readAt',
+  label: 'label',
+  group: 'group'
+};
+
+exports.Prisma.CultScalarFieldEnum = {
+  id: 'id',
+  date: 'date',
+  typeId: 'typeId',
+  theme: 'theme',
+  preacher: 'preacher',
+  location: 'location',
+  totalPeople: 'totalPeople',
+  visitors: 'visitors',
+  children: 'children',
+  saved: 'saved',
+  healed: 'healed',
+  holySpiritBaptisms: 'holySpiritBaptisms',
+  tithesAmount: 'tithesAmount',
+  tithesCount: 'tithesCount',
+  offeringsAmount: 'offeringsAmount',
+  offeringsCount: 'offeringsCount',
+  designatedOfferings: 'designatedOfferings',
+  notes: 'notes',
+  deletedAt: 'deletedAt',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+};
+
+exports.Prisma.CultTypeScalarFieldEnum = {
+  id: 'id',
+  name: 'name',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+};
+
+exports.Prisma.CultScheduleScalarFieldEnum = {
+  id: 'id',
+  cultId: 'cultId',
+  preacherId: 'preacherId',
+  directorId: 'directorId',
+  notes: 'notes',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 };
@@ -244,6 +363,11 @@ exports.Prisma.AppointmentScalarFieldEnum = {
 exports.Prisma.SortOrder = {
   asc: 'asc',
   desc: 'desc'
+};
+
+exports.Prisma.NullableJsonNullValueInput = {
+  DbNull: Prisma.DbNull,
+  JsonNull: Prisma.JsonNull
 };
 
 exports.Prisma.QueryMode = {
@@ -255,10 +379,17 @@ exports.Prisma.NullsOrder = {
   first: 'first',
   last: 'last'
 };
+
+exports.Prisma.JsonNullValueFilter = {
+  DbNull: Prisma.DbNull,
+  JsonNull: Prisma.JsonNull,
+  AnyNull: Prisma.AnyNull
+};
 exports.Role = exports.$Enums.Role = {
   ADMIN: 'ADMIN',
   LEADER: 'LEADER',
-  MEMBER: 'MEMBER'
+  MEMBER: 'MEMBER',
+  PASTOR: 'PASTOR'
 };
 
 exports.TransactionType = exports.$Enums.TransactionType = {
@@ -277,7 +408,18 @@ exports.Prisma.ModelName = {
   Message: 'Message',
   Notice: 'Notice',
   Notification: 'Notification',
-  Appointment: 'Appointment'
+  Appointment: 'Appointment',
+  AppointmentMember: 'AppointmentMember',
+  Permission: 'Permission',
+  RolePermission: 'RolePermission',
+  PasswordResetToken: 'PasswordResetToken',
+  Email: 'Email',
+  EmailMessage: 'EmailMessage',
+  Attachment: 'Attachment',
+  EmailRecipient: 'EmailRecipient',
+  Cult: 'Cult',
+  CultType: 'CultType',
+  CultSchedule: 'CultSchedule'
 };
 
 /**

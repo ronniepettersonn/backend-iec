@@ -33,18 +33,37 @@ export const createMinistry = async (req: Request, res: Response) => {
 }
 
 export const getAllMinistries = async (req: Request, res: Response) => {
+  const { page = '1', limit = '10' } = req.query
+
+  const pageNumber = parseInt(page as string, 10) || 1
+  const limitNumber = parseInt(limit as string, 10) || 10
+  const skip = (pageNumber - 1) * limitNumber
+
   try {
-    const ministries = await prisma.ministry.findMany({
-      include: {
-        leader: true,
-        members: true,
-      },
-      orderBy: {
-        name: 'asc',
+    const [ministries, total] = await Promise.all([
+      prisma.ministry.findMany({
+        include: {
+          leader: true,
+          members: true,
+        },
+        orderBy: {
+          name: 'asc',
+        },
+        skip,
+        take: limitNumber,
+      }),
+      prisma.ministry.count(),
+    ])
+
+    return res.status(200).json({
+      data: ministries,
+      pagination: {
+        total,
+        page: pageNumber,
+        limit: limitNumber,
+        totalPages: Math.ceil(total / limitNumber),
       },
     })
-
-    return res.status(200).json(ministries)
   } catch (error: any) {
     console.error(error)
     return res.status(500).json({ error: 'Erro ao listar ministérios' })

@@ -7,3 +7,11 @@ export const createAppointmentSchema = z.object({
     location: z.string().min(3),
     attendeesIds: z.array(z.string().uuid()).optional(),
 })
+
+export const rescheduleAppointmentSchema = z.object({
+  newDate: z.string().datetime('Data/hora inválida')
+})
+
+export const confirmAttendanceSchema = z.object({
+  userId: z.string().uuid()
+})

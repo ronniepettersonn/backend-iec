@@ -47,17 +47,38 @@ export const updateVisitor = async (req: Request, res: Response) => {
 }
 
 export const getVisitors = async (req: Request, res: Response) => {
-  const { name } = req.query
+  const { name, page = '1', limit = '10' } = req.query
+
+  const pageNumber = parseInt(page as string, 10) || 1
+  const limitNumber = parseInt(limit as string, 10) || 10
+  const skip = (pageNumber - 1) * limitNumber
 
   try {
-    const visitors = await prisma.visitor.findMany({
-      where: {
-        name: name ? { contains: String(name), mode: 'insensitive' } : undefined,
-      },
-      orderBy: { visitDate: 'desc' },
-    })
+    const [visitors, total] = await Promise.all([
+      prisma.visitor.findMany({
+        where: {
+          name: name ? { contains: String(name), mode: 'insensitive' } : undefined,
+        },
+        orderBy: { visitDate: 'desc' },
+        skip,
+        take: limitNumber,
+      }),
+      prisma.visitor.count({
+        where: {
+          name: name ? { contains: String(name), mode: 'insensitive' } : undefined,
+        },
+      }),
+    ])
 
-    return res.json(visitors)
+    return res.json({
+      data: visitors,
+      pagination: {
+        total,
+        page: pageNumber,
+        limit: limitNumber,
+        totalPages: Math.ceil(total / limitNumber),
+      },
+    })
   } catch (error) {
     console.error(error)
     return res.status(500).json({ error: 'Erro ao listar visitantes' })

@@ -1,93 +1,213 @@
 import { Request, Response } from 'express'
 import { prisma } from '../prisma/client'
 import { registerUserSchema } from '../validations/auth.validation'
-import bcrypt from 'bcryptjs'
+import bcrypt, { compare, hash } from 'bcryptjs'
 import jwt from 'jsonwebtoken'
 import { loginUserSchema } from '../validations/auth.validation'
+import { addMinutes } from 'date-fns'
+import crypto from 'crypto'
+import { createPasswordResetToken } from '../services/token.service'
+import { sendEmail } from '../services/email.service'
+import { sendNotification } from '../utils/sendNotification'
 
 const JWT_SECRET = process.env.JWT_SECRET || 'defaultsecret' // ideal usar variável de ambiente
 
-export async function register(req: Request, res: Response) {
+export const register = async (req: Request, res:Response) => {
   try {
-    const { name, email, password, role } = registerUserSchema.parse(req.body)
+    const { name, email, password } = req.body
 
-    const existingUser = await prisma.user.findUnique({ where: { email } })
-    if (existingUser) {
-      return res.status(400).json({ error: 'Email já está em uso' })
+    // Verifica se já existe o email
+    const userExists = await prisma.user.findUnique({ where: { email } })
+    if (userExists) {
+      return res.status(400).json({ error: 'E-mail já cadastrado.' })
     }
 
+    // Cria o membro
+    const member = await prisma.member.create({
+      data: {
+        fullName: name,
+        email
+      }
+    })
+
+    // Cria o usuário vinculado ao membro
     const passwordHash = await bcrypt.hash(password, 10)
+
+    // Criar o avatar default
+    const avatarUrl = `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(name)}&fontFamily=Helvetica&fontSize=36`
 
     const user = await prisma.user.create({
       data: {
         name,
         email,
         passwordHash,
-        role: role || 'MEMBER',
-      },
+        role: 'MEMBER',
+        memberId: member.id,
+        avatar: avatarUrl
+      }
     })
 
-    return res.status(201).json({
-      message: 'Usuário criado com sucesso',
-      user: {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-      },
-    })
-  } catch (error) {
-    if (error instanceof Error) {
-      return res.status(400).json({ error: error.message })
-    }
-    return res.status(500).json({ error: 'Erro interno no servidor' })
+    return res.status(201).json({ message: 'Usuário cadastrado com sucesso.', user })
+  } catch (err) {
+    console.error(err)
+    return res.status(500).json({ error: 'Erro ao registrar usuário.' })
   }
 }
 
-export async function login(req: Request, res: Response) {
+export const login = async (req: Request, res: Response) => {
   try {
     const { email, password } = loginUserSchema.parse(req.body)
 
     const user = await prisma.user.findUnique({ where: { email } })
 
-
     if (!user || !user.active) {
-      return res.status(401).json({ error: 'Credenciais inválidas ou usuário inativo' })
+      return res.status(401).json({ error: 'Credenciais inválidas' })
     }
 
-    if (!user) {
-      return res.status(404).json({ error: 'Usuário não encontrado' })
+    const isPasswordValid = await compare(password, user.passwordHash)
+
+    if (!isPasswordValid) {
+      return res.status(401).json({ error: 'Credenciais inválidas' })
     }
 
-    const passwordMatch = await bcrypt.compare(password, user.passwordHash)
-
-    if (!passwordMatch) {
-      return res.status(401).json({ error: 'Senha inválida' })
-    }
-
+    // Geração do token
     const token = jwt.sign(
-      {
-        id: user.id,
-        role: user.role,
-      },
+      { id: user.id, role: user.role },
       JWT_SECRET,
       { expiresIn: '1d' }
     )
 
     return res.json({
-      message: 'Login realizado com sucesso',
       token,
       user: {
         id: user.id,
         name: user.name,
         email: user.email,
         role: user.role,
-      },
+        firstLogin: user.firstLogin,
+        authority: [user.role],
+        avatar: user.avatar
+      }
     })
   } catch (error) {
-    if (error instanceof Error) {
-      return res.status(400).json({ error: error.message })
-    }
-    return res.status(500).json({ error: 'Erro interno no servidor' })
+    console.error(error)
+    return res.status(400).json({ error: 'Erro ao fazer login' })
   }
+}
+
+export const changePassword = async (req: Request, res: Response) => {
+  const { newPassword } = req.body
+
+  if (!newPassword || newPassword.length < 6) {
+    return res.status(400).json({ error: 'Senha muito curta' })
+  }
+
+  const userId = req.userId
+
+  try {
+    const passwordHash = await hash(newPassword, 10)
+
+    const user = await prisma.user.findUnique({where: {id: userId}})
+
+    await prisma.user.update({
+      where: { id: userId },
+      data: {
+        passwordHash,
+        firstLogin: false,
+      }
+    })
+
+    await sendNotification({
+      userId: userId!,
+      content: 'Sua senha foi redefinida com sucesso!',
+      target: user?.name,
+      image: 'https://avatar.iran.liara.run/username?username=' + user?.name,
+      type: 2,
+      status: 'succeed'
+    })
+
+    return res.status(200).json({ message: 'Senha alterada com sucesso' })
+  } catch (error) {
+    return res.status(500).json({ error: 'Erro ao alterar senha' })
+  }
+}
+
+/* export const forgotPassword = async (req: Request, res: Response) => {
+  const { email } = req.body
+
+  if (!email) return res.status(400).json({ error: 'Email obrigatório' })
+
+  const user = await prisma.user.findUnique({ where: { email } })
+
+  if (!user) {
+    return res.status(404).json({ error: 'Usuário não encontrado' })
+  }
+
+  const token = crypto.randomBytes(32).toString('hex')
+  const expiresAt = addMinutes(new Date(), 30) // expira em 30 minutos
+
+  await prisma.passwordResetToken.create({
+    data: {
+      token,
+      userId: user.id,
+      expiresAt,
+    }
+  })
+
+  // Aqui você pode enviar o token por e-mail
+  // Por enquanto, apenas exibe no retorno:
+  const resetLink = `https://seusite.com/reset-password?token=${token}`
+
+  return res.json({ message: 'Token enviado com sucesso', resetLink })
+} */
+
+export const resetPassword = async (req: Request, res: Response) => {
+  const { token, newPassword } = req.body
+
+  const resetToken = await prisma.passwordResetToken.findUnique({
+    where: { token },
+    include: { user: true }
+  })
+
+  if (!resetToken || resetToken.expiresAt < new Date()) {
+    return res.status(400).json({ error: 'Token inválido ou expirado' })
+  }
+
+  const passwordHash = await hash(newPassword, 10)
+
+  await prisma.user.update({
+    where: { id: resetToken.userId },
+    data: { passwordHash }
+  })
+
+  await prisma.passwordResetToken.delete({ where: { id: resetToken.id } })
+
+  return res.json({ message: 'Senha redefinida com sucesso' })
+}
+
+export const requestPasswordReset = async (req: Request, res: Response) => {
+  const { email } = req.body
+
+  const user = await prisma.user.findUnique({ where: { email } })
+
+  if (!user) {
+    return res.status(404).json({ error: 'Usuário não encontrado' })
+  }
+
+  const token = await createPasswordResetToken(user.id)
+
+  const resetLink = `http://localhost:5173/reset-password?token=${token}`
+
+  await sendEmail({
+    to: user.email,
+    subject: 'Redefinição de senha',
+    html: `
+      <p>Olá ${user.name},</p>
+      <p>Recebemos um pedido para redefinir sua senha. Clique no link abaixo:</p>
+      <p><a href="${resetLink}">Redefinir senha</a></p>
+      <p>Se não foi você, ignore este e-mail.</p>
+    `
+  })
+
+  return res.json({ message: 'E-mail de redefinição enviado' })
 }

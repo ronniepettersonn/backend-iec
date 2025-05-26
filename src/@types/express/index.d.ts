@@ -5,6 +5,8 @@ declare global {
     interface Request {
       userId?: string
       user?: JwtPayload
+      file?: Express.Multer.File;
+    files?: Express.Multer.File[];
     }
   }
 }

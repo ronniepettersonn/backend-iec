@@ -4,11 +4,10 @@ import { createMessageSchema } from '../validations/message.validation'
 
 export const sendMessage = async (req: Request, res: Response) => {
   try {
-    const senderId = req.userId! // vem do middleware de autenticação
-
-    const user = await prisma.user.findUnique({ where: { id: senderId } })
-
+    const senderId = req.userId!
     const { receiverId, content } = createMessageSchema.parse(req.body)
+
+    const sender = await prisma.user.findUnique({ where: { id: senderId } })
 
     const newMessage = await prisma.message.create({
       data: {
@@ -21,7 +20,14 @@ export const sendMessage = async (req: Request, res: Response) => {
     await prisma.notification.create({
       data: {
         userId: receiverId,
-        content: `Você recebeu uma nova mensagem de ${user?.name}`
+        content: `Você recebeu uma nova mensagem de ${sender?.name}`,
+        target: sender?.name ?? 'Usuário',
+        image: 'https://avatar.iran.liara.run/username?username=' + sender?.name,
+        type: 1,
+        location: `/mensagens`, // ou algum path útil do sistema
+        locationLabel: 'Mensagens',
+        status: 'info',
+        read: false
       }
     })
 

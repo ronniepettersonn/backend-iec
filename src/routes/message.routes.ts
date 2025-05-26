@@ -1,6 +1,7 @@
 import { Router } from 'express'
 import { deleteMessage, getInboxMessages, getMessageById, getSentMessages, markMessageAsRead, sendMessage } from '../controllers/message.controller'
 import { isAuthenticated } from '../middlewares/isAuthenticated'
+import { hasRole } from '../middlewares/hasRole'
 
 const router = Router()
 
