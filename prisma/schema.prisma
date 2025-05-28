@@ -9,9 +9,8 @@ generator client {
 }
 
 datasource db {
-  provider  = "postgresql"
-  url       = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 model Member {
@@ -76,6 +75,8 @@ model User {
   EmailsSent        Email[]          @relation("EmailsSent")
   EmailMessagesSent EmailMessage[]   @relation("EmailMessagesSent")
   EmailRecipient    EmailRecipient[]
+
+  DailyCash DailyCash[]
 }
 
 enum Role {
@@ -384,4 +385,16 @@ model Recurrence {
   category   Category? @relation(fields: [categoryId], references: [id])
 
   transactions Transaction[]
+}
+
+model DailyCash {
+  id            String   @id @default(uuid())
+  date          DateTime @unique
+  openingAmount Float    @default(0)
+  closingAmount Float?
+  notes         String?
+  createdById   String
+  createdBy     User     @relation(fields: [createdById], references: [id])
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 }
