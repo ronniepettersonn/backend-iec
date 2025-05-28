@@ -5,11 +5,10 @@ import { prisma } from '../prisma/client'
 export const createTransaction = async (req: Request, res: Response) => {
   try {
     if (!req.userId) {
-    return res.status(401).json({ error: 'Usuário não autenticado' })
-}
+      return res.status(401).json({ error: 'Usuário não autenticado' })
+    }
 
-    const userId = req.userId // <- vem do middleware de autenticação
-
+    const userId = req.userId
     const validatedData = createTransactionSchema.parse(req.body)
 
     const newTransaction = await prisma.transaction.create({

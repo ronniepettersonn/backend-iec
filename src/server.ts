@@ -19,6 +19,10 @@ import emailRoutes from './routes/email.routes'
 import cultRoutes from './routes/cult.routes'
 import cultScheduleRoutes from './routes/cultSchedule.routes'
 import uploadRoutes from './routes/upload.routes'
+import categoryRoutes from './routes/category.routes'
+import recurrenceRoutes from './routes/recurrence.routes'
+import reportRoutes from './routes/report.routes'
+
 
 dotenv.config()
 
@@ -45,6 +49,9 @@ app.use('/admin/permissions', permissionRoutes)
 app.use('/emails', emailRoutes)
 app.use('/cults', cultRoutes)
 app.use('/cult-schedules', cultScheduleRoutes)
+app.use('/categories', categoryRoutes)
+app.use('/recurrences', recurrenceRoutes)
+app.use('/reports', reportRoutes)
 
 app.use('/upload', uploadRoutes)
 
