@@ -7,27 +7,21 @@ export const getFinancialDashboard = async (req: Request, res: Response) => {
       return res.status(401).json({ error: 'Usuário não autenticado' })
     }
 
-    // 🔹 Pega as transações reais do usuário
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+
+    // Pega todas as transações
     const transactions = await prisma.transaction.findMany({
       where: { createdById: req.userId },
       orderBy: { date: 'asc' },
-      include: { category: true }
     })
 
-    // 🔹 Pega as recorrências ativas (sem endDate ou endDate futura)
-    const today = new Date()
-    const recurrences = await prisma.recurrence.findMany({
-      where: {
-        OR: [
-          { endDate: null },
-          { endDate: { gte: today } }
-        ],
-        //startDate: { lte: today }
-      },
-      include: { category: true }
+    // Pega o caixa de hoje
+    const cash = await prisma.dailyCash.findUnique({
+      where: { date: today }
     })
 
-    // 🔹 Calcula totais reais
+    // Soma total de INCOME e EXPENSE
     const totalIncome = transactions
       .filter(tx => tx.type === 'INCOME')
       .reduce((acc, tx) => acc + tx.amount, 0)
@@ -38,18 +32,7 @@ export const getFinancialDashboard = async (req: Request, res: Response) => {
 
     const balance = totalIncome - totalExpense
 
-    // 🔹 Calcula previsão de saldo futuro
-    const futureIncome = recurrences
-      .filter(rec => rec.amount > 0)
-      .reduce((acc, rec) => acc + rec.amount, 0)
-
-    const futureExpense = recurrences
-      .filter(rec => rec.amount < 0)
-      .reduce((acc, rec) => acc + Math.abs(rec.amount), 0)
-
-    const projectedBalance = balance + futureIncome - futureExpense
-
-    // 🔹 Agrupamento por mês
+    // Agrupamento por mês (ano-mês)
     const monthlySummaryMap = transactions.reduce((acc, tx) => {
       const yearMonth = tx.date.toISOString().slice(0, 7)
       const key = `${tx.type}_${yearMonth}`
@@ -62,10 +45,10 @@ export const getFinancialDashboard = async (req: Request, res: Response) => {
       return { type, yearMonth, amount }
     })
 
-    // 🔹 Agrupamento por categoria
+    // Agrupamento por categoria
     const categorySummaryMap = transactions.reduce((acc, tx) => {
-      if (!tx.category) return acc
-      const key = `${tx.type}_${tx.category.name}`
+      if (!tx.categoryId) return acc
+      const key = `${tx.type}_${tx.categoryId}`
       acc[key] = (acc[key] || 0) + tx.amount
       return acc
     }, {} as Record<string, number>)
@@ -75,33 +58,23 @@ export const getFinancialDashboard = async (req: Request, res: Response) => {
       return { type, category, amount }
     })
 
-    // 🔹 Resumo das recorrências futuras
-    const futureRecurrences = recurrences.map((rec) => ({
-      id: rec.id,
-      startDate: rec.startDate,
-      endDate: rec.endDate,
-      frequency: rec.frequency,
-      amount: rec.amount,
-      description: rec.description,
-      category: rec.category ? rec.category.name : null
-    }))
-
+    // Monta resposta final
     return res.json({
-      real: {
-        totalIncome,
-        totalExpense,
-        balance
-      },
-      future: {
-        futureIncome,
-        futureExpense,
-        projectedBalance,
-        recurrences: futureRecurrences
-      },
+      totalIncome,
+      totalExpense,
+      balance,
       monthlySummary,
-      categorySummary
+      categorySummary,
+      cash: cash
+        ? {
+            date: cash.date.toISOString().split('T')[0],
+            openingAmount: cash.openingAmount,
+            closingAmount: cash.closingAmount,
+            status: cash.closingAmount ? 'Fechado' : 'Aberto'
+          }
+        : null
     })
-  } catch (error: any) {
+  } catch (error) {
     console.error(error)
     return res.status(500).json({ error: 'Erro ao carregar dashboard financeiro' })
   }
@@ -178,5 +151,113 @@ export const getFinancialChartData = async (req: Request, res: Response) => {
   } catch (error) {
     console.error(error)
     return res.status(500).json({ error: 'Erro ao buscar dados do gráfico' })
+  }
+}
+
+export const getFinancialAlerts = async (req: Request, res: Response) => {
+  try {
+    if (!req.userId) {
+      return res.status(401).json({ error: 'Usuário não autenticado' })
+    }
+
+    const alerts: string[] = []
+
+    // 1️⃣ Verifica se o caixa de hoje está fechado
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+
+    const cash = await prisma.dailyCash.findUnique({
+      where: { date: today }
+    })
+
+    if (!cash || !cash.closingAmount) {
+      alerts.push('O caixa de hoje ainda não foi fechado.')
+    }
+
+    // 2️⃣ Verifica transações recorrentes vencendo hoje
+    const todayStr = today.toISOString().split('T')[0]
+    const recurringPayments = await prisma.recurrence.findMany({
+      where: {
+        startDate: today
+      }
+    })
+
+    if (recurringPayments.length > 0) {
+      alerts.push(`Existem ${recurringPayments.length} pagamento(s) recorrente(s) vencendo hoje.`)
+    }
+
+    // 3️⃣ Verifica saldo geral
+    const transactions = await prisma.transaction.findMany({
+      where: { createdById: req.userId }
+    })
+
+    const totalIncome = transactions
+      .filter(tx => tx.type === 'INCOME')
+      .reduce((acc, tx) => acc + tx.amount, 0)
+
+    const totalExpense = transactions
+      .filter(tx => tx.type === 'EXPENSE')
+      .reduce((acc, tx) => acc + tx.amount, 0)
+
+    const balance = totalIncome - totalExpense
+
+    const minBalance = 0 // ou configurable
+    if (balance < minBalance) {
+      alerts.push('O saldo geral está negativo!')
+    }
+
+    return res.json({ alerts })
+  } catch (error) {
+    console.error(error)
+    return res.status(500).json({ error: 'Erro ao buscar alertas financeiros' })
+  }
+}
+
+export const getFinancialSummaryByPeriod = async (req: Request, res: Response) => {
+  try {
+    if (!req.userId) {
+      return res.status(401).json({ error: 'Usuário não autenticado' })
+    }
+
+    const { startDate, endDate } = req.query
+
+    if (!startDate || !endDate) {
+      return res.status(400).json({ error: 'startDate e endDate são obrigatórios' })
+    }
+
+    const start = new Date(startDate as string)
+    const end = new Date(endDate as string)
+    end.setHours(23, 59, 59, 999) // para pegar o dia todo
+
+    const transactions = await prisma.transaction.findMany({
+      where: {
+        createdById: req.userId,
+        date: {
+          gte: start,
+          lte: end
+        }
+      }
+    })
+
+    const totalIncome = transactions
+      .filter(tx => tx.type === 'INCOME')
+      .reduce((acc, tx) => acc + tx.amount, 0)
+
+    const totalExpense = transactions
+      .filter(tx => tx.type === 'EXPENSE')
+      .reduce((acc, tx) => acc + tx.amount, 0)
+
+    const balance = totalIncome - totalExpense
+
+    return res.json({
+      startDate,
+      endDate,
+      totalIncome,
+      totalExpense,
+      balance
+    })
+  } catch (error) {
+    console.error(error)
+    return res.status(500).json({ error: 'Erro ao calcular resumo financeiro' })
   }
 }

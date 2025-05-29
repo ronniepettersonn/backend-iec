@@ -32,6 +32,11 @@ export const isAuthenticated = (
 
   try {
     const decoded = jwt.verify(token, JWT_SECRET) as JwtPayload
+    
+    if (!decoded || !decoded.id) {
+      return res.status(401).json({ error: 'Token inválido' })
+    }
+
     const { id } = decoded as { id: string }
 
     req.userId = id

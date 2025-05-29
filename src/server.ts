@@ -22,6 +22,7 @@ import uploadRoutes from './routes/upload.routes'
 import categoryRoutes from './routes/category.routes'
 import recurrenceRoutes from './routes/recurrence.routes'
 import reportRoutes from './routes/report.routes'
+import cashRoutes from './routes/cash.routes'
 
 
 dotenv.config()
@@ -52,6 +53,7 @@ app.use('/cult-schedules', cultScheduleRoutes)
 app.use('/categories', categoryRoutes)
 app.use('/recurrences', recurrenceRoutes)
 app.use('/reports', reportRoutes)
+app.use('/cash', cashRoutes)
 
 app.use('/upload', uploadRoutes)
 
