@@ -114,7 +114,7 @@ export const listCults = async (req: Request, res: Response) => {
 
   const where = {
     deletedAt: null,
-    ...(type ? {typeId: String(type)} : {})
+    ...(type ? { typeId: String(type) } : {})
   }
 
   try {
@@ -164,6 +164,39 @@ export const getCultById = async (req: Request, res: Response) => {
     return res.status(500).json({ error: 'Erro ao buscar culto' })
   }
 }
+
+// Cultos futuros
+export const getUpcomingCults = async (req: Request, res: Response) => {
+  try {
+    const upcomingCults = await prisma.cult.findMany({
+      where: { date: { gte: new Date() }, deletedAt: null },
+      orderBy: { date: 'asc' },
+      include: { type: true }
+    })
+
+    return res.json(upcomingCults)
+  } catch (error) {
+    console.error(error)
+    return res.status(500).json({ error: 'Erro ao listar cultos futuros' })
+  }
+}
+
+// Cultos passados
+export const getPastCults = async (req: Request, res: Response) => {
+  try {
+    const pastCults = await prisma.cult.findMany({
+      where: { date: { lt: new Date() }, deletedAt: null },
+      orderBy: { date: 'desc' },
+      include: { type: true }
+    })
+
+    return res.json(pastCults)
+  } catch (error) {
+    console.error(error)
+    return res.status(500).json({ error: 'Erro ao listar cultos passados' })
+  }
+}
+
 
 export const deleteCult = async (req: Request, res: Response) => {
   const { id } = req.params
