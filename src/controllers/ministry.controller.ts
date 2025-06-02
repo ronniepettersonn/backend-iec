@@ -134,3 +134,43 @@ export const deleteMinistry = async (req: Request, res: Response) => {
     return res.status(400).json({ error: error.message || 'Erro ao deletar ministério' })
   }
 }
+
+export const addMemberToMinistry = async (req: Request, res: Response) => {
+  const { ministryId, memberId } = req.body
+
+  try {
+    await prisma.ministry.update({
+      where: { id: ministryId },
+      data: {
+        members: {
+          connect: { id: memberId }
+        }
+      }
+    })
+
+    return res.status(200).json({ message: 'Membro adicionado ao ministério' })
+  } catch (error) {
+    console.error(error)
+    return res.status(500).json({ error: 'Erro ao adicionar membro' })
+  }
+}
+
+export const removeMemberFromMinistry = async (req: Request, res: Response) => {
+  const { ministryId, memberId } = req.body
+
+  try {
+    await prisma.ministry.update({
+      where: { id: ministryId },
+      data: {
+        members: {
+          disconnect: { id: memberId }
+        }
+      }
+    })
+
+    return res.status(200).json({ message: 'Membro removido do ministério' })
+  } catch (error) {
+    console.error(error)
+    return res.status(500).json({ error: 'Erro ao remover membro' })
+  }
+}

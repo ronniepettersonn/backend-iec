@@ -23,6 +23,8 @@ import categoryRoutes from './routes/category.routes'
 import recurrenceRoutes from './routes/recurrence.routes'
 import reportRoutes from './routes/report.routes'
 import cashRoutes from './routes/cash.routes'
+import { swaggerSpec } from './config/swaggerConfig'
+import swaggerUi from 'swagger-ui-express'
 
 
 dotenv.config()
@@ -56,6 +58,8 @@ app.use('/reports', reportRoutes)
 app.use('/cash', cashRoutes)
 
 app.use('/upload', uploadRoutes)
+
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec))
 
 app.listen(PORT, () => {
   console.log(`Servidor rodando em http://localhost:${PORT}`)

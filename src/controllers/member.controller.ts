@@ -4,10 +4,23 @@ import { prisma } from '../prisma/client'
 import { updateMemberSchema } from '../validations/member.validation'
 import bcrypt from 'bcryptjs'
 import { sendNotification } from '../utils/sendNotification'
+import { uploadFileToSupabase } from '../utils/uploadFile'
 
 export const createMember = async (req: Request, res: Response) => {
   try {
-    const data = createMemberSchema.parse(req.body)
+    const validatedData = createMemberSchema.parse(req.body)
+
+    const data = {
+      ...validatedData,
+      joinDate: validatedData.joinDate ? new Date(validatedData.joinDate) : new Date(),
+      birthDate: validatedData.birthDate ? new Date(validatedData.birthDate) : undefined,
+      baptismDate: validatedData.baptismDate ? new Date(validatedData.baptismDate) : undefined,
+      conversionDate: validatedData.conversionDate ? new Date(validatedData.conversionDate) : undefined,
+      status: validatedData.status || 'ATIVO',
+      notes: validatedData.notes,
+      emergencyContactName: validatedData.emergencyContactName,
+      emergencyContactPhone: validatedData.emergencyContactPhone
+    }
 
     // Criação do membro
     const member = await prisma.member.create({
@@ -128,7 +141,17 @@ export async function updateMember(req: Request, res: Response) {
 
     const updated = await prisma.member.update({
       where: { id },
-      data: validatedData,
+      data: {
+        ...validatedData,
+        joinDate: validatedData.joinDate ? new Date(validatedData.joinDate) : undefined,
+        birthDate: validatedData.birthDate ? new Date(validatedData.birthDate) : undefined,
+        baptismDate: validatedData.baptismDate ? new Date(validatedData.baptismDate) : undefined,
+        conversionDate: validatedData.conversionDate ? new Date(validatedData.conversionDate) : undefined,
+        status: validatedData.status,
+        notes: validatedData.notes,
+        emergencyContactName: validatedData.emergencyContactName,
+        emergencyContactPhone: validatedData.emergencyContactPhone
+      }
     })
 
     return res.json(updated)
@@ -165,5 +188,29 @@ export async function deleteMember(req: Request, res: Response) {
       return res.status(400).json({ error: error.message })
     }
     return res.status(500).json({ error: 'Erro interno no servidor' })
+  }
+}
+
+export const updateAvatar = async (req: Request, res: Response) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'Arquivo não enviado' })
+    }
+
+    const memberId = req.params.id
+
+    // Upload do arquivo pro Supabase
+    const { publicUrl } = await uploadFileToSupabase(req.file, 'members')
+
+    // Atualiza o membro com a URL da imagem
+    const updatedMember = await prisma.member.update({
+      where: { id: memberId },
+      data: { avatarUrl: publicUrl }
+    })
+
+    return res.status(200).json(updatedMember)
+  } catch (error) {
+    console.error(error)
+    return res.status(500).json({ error: 'Erro ao atualizar a foto do perfil' })
   }
 }

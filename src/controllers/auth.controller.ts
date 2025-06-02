@@ -9,8 +9,11 @@ import crypto from 'crypto'
 import { createPasswordResetToken } from '../services/token.service'
 import { sendEmail } from '../services/email.service'
 import { sendNotification } from '../utils/sendNotification'
+import { OAuth2Client } from 'google-auth-library'
 
 const JWT_SECRET = process.env.JWT_SECRET || 'defaultsecret' // ideal usar variável de ambiente
+
+const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID)
 
 export const register = async (req: Request, res:Response) => {
   try {
@@ -129,6 +132,48 @@ export const changePassword = async (req: Request, res: Response) => {
     return res.status(200).json({ message: 'Senha alterada com sucesso' })
   } catch (error) {
     return res.status(500).json({ error: 'Erro ao alterar senha' })
+  }
+}
+
+export const loginWithGoogle = async (req: Request, res: Response) => {
+  const { idToken } = req.body
+
+  if (!idToken) {
+    return res.status(400).json({ error: 'Token não fornecido' })
+  }
+
+  try {
+    // Valida o idToken com o Google
+    const ticket = await client.verifyIdToken({
+      idToken,
+      audience: process.env.GOOGLE_CLIENT_ID
+    })
+
+    const payload = ticket.getPayload()
+    if (!payload || !payload.email) {
+      return res.status(400).json({ error: 'Token inválido' })
+    }
+
+    // Busca o usuário no banco
+    const user = await prisma.user.findUnique({
+      where: { email: payload.email }
+    })
+
+    if (!user) {
+      return res.status(404).json({ error: 'Usuário não encontrado' })
+    }
+
+    // Gera o token JWT
+    const token = jwt.sign(
+      { id: user.id, role: user.role },
+      process.env.JWT_SECRET || 'defaultsecret',
+      { expiresIn: '1d' }
+    )
+
+    return res.status(200).json({ token, user })
+  } catch (error) {
+    console.error(error)
+    return res.status(400).json({ error: 'Erro ao autenticar com Google' })
   }
 }
 

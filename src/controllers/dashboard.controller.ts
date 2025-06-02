@@ -261,3 +261,77 @@ export const getFinancialSummaryByPeriod = async (req: Request, res: Response) =
     return res.status(500).json({ error: 'Erro ao calcular resumo financeiro' })
   }
 }
+
+export const getDashboardOverview = async (req: Request, res: Response) => {
+  try {
+    // 👤 Total de membros
+    const totalMembers = await prisma.member.count()
+
+    // 👤 Novos membros no último mês
+    const newMembers = await prisma.member.count({
+      where: {
+        createdAt: {
+          gte: new Date(new Date().setMonth(new Date().getMonth() - 1))
+        }
+      }
+    })
+
+    // 👥 Visitantes no último mês
+    const visitorsLastMonth = await prisma.visitor.count({
+      where: {
+        visitDate: {
+          gte: new Date(new Date().setMonth(new Date().getMonth() - 1))
+        }
+      }
+    })
+
+    // 💬 Total de mensagens
+    const totalMessages = await prisma.message.count()
+
+    // 📅 Próximos eventos
+    const upcomingEvents = await prisma.event.findMany({
+      where: {
+        date: {
+          gte: new Date()
+        }
+      },
+      orderBy: { date: 'asc' },
+      take: 5
+    })
+
+    // 💰 Saldo financeiro geral
+    const transactions = await prisma.transaction.findMany()
+    const totalIncome = transactions.filter(t => t.type === 'INCOME').reduce((acc, t) => acc + t.amount, 0)
+    const totalExpense = transactions.filter(t => t.type === 'EXPENSE').reduce((acc, t) => acc + t.amount, 0)
+    const balance = totalIncome - totalExpense
+
+    // 💵 Caixa diário (último caixa aberto, se existir)
+    const lastCash = await prisma.dailyCash.findFirst({
+      where: { closingAmount: null },
+      orderBy: { date: 'desc' }
+    })
+
+    return res.json({
+      members: {
+        total: totalMembers,
+        new: newMembers
+      },
+      visitors: visitorsLastMonth,
+      messages: totalMessages,
+      events: upcomingEvents,
+      financial: {
+        totalIncome,
+        totalExpense,
+        balance
+      },
+      dailyCash: lastCash ? {
+        id: lastCash.id,
+        balance: lastCash.closingAmount ? lastCash.closingAmount - lastCash.openingAmount : 0,
+        openedAt: lastCash.date
+      } : null
+    })
+  } catch (error) {
+    console.error(error)
+    return res.status(500).json({ error: 'Erro ao carregar o dashboard geral' })
+  }
+}
