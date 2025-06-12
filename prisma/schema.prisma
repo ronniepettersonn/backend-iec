@@ -442,6 +442,8 @@ model AccountPayable {
   amount      Float
   description String
 
+  attachmentUrl String?
+
   paid   Boolean   @default(false)
   paidAt DateTime?
 

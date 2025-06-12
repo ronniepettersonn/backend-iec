@@ -2,6 +2,7 @@ import { Request, Response } from 'express'
 import { prisma } from '../prisma/client'
 import { createAccountPayableSchema, updateAccountPayableSchema } from '../validations/accountPayable.validation'
 import { ensureDailyCashOpen } from './cash.controller'
+import { uploadFileToSupabase } from '../utils/uploadFile'
 
 export const listAccountsPayable = async (req: Request, res: Response) => {
   try {
@@ -302,5 +303,33 @@ export const deleteAccountPayable = async (req: Request, res: Response) => {
   } catch (error: any) {
     console.error(error)
     return res.status(500).json({ error: 'Erro ao excluir conta a pagar' })
+  }
+}
+
+
+export const uploadAccountPayableAttachment = async (req: Request, res: Response) => {
+  try {
+    const { accountPayableId } = req.params
+
+    if (!req.file) {
+      return res.status(400).json({ error: 'Arquivo não enviado' })
+    }
+
+    const upload = await uploadFileToSupabase(req.file, 'account-payable')
+
+    const updated = await prisma.accountPayable.update({
+      where: { id: accountPayableId },
+      data: {
+        attachmentUrl: upload.publicUrl
+      }
+    })
+
+    return res.status(200).json({
+      message: 'Anexo salvo com sucesso',
+      attachmentUrl: updated.attachmentUrl
+    })
+  } catch (error: any) {
+    console.error('[uploadAccountPayableAttachment] ERRO:', error)
+    return res.status(500).json({ error: 'Erro ao anexar comprovante' })
   }
 }
