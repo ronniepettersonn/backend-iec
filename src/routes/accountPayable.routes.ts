@@ -7,10 +7,10 @@ const router = Router()
 
 router.get('/', isAuthenticated, listAccountsPayable)
 router.post('/', isAuthenticated, createAccountPayable)
-router.post('/accounts-payable/:accountPayableId/attachment', upload.single('file'), uploadAccountPayableAttachment)
 router.put('/:id', isAuthenticated, updateAccountPayable)
 router.delete('/:id', isAuthenticated, deleteAccountPayable)
 router.patch('/:id/pay', isAuthenticated, markAccountAsPaid)
+router.post('/:accountPayableId/attachment', upload.single('file'), uploadAccountPayableAttachment)
 
 
 export default router
