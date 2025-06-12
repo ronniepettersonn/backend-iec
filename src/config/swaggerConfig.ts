@@ -20,7 +20,7 @@ export const swaggerOptions = {
       }
     ],
   },
-  apis: ['./src/routes/*.ts'], // Ajuste conforme a pasta onde estão suas rotas
+  apis: ['./src/routes/*.ts', './src/validations/**/*.ts'], // Ajuste conforme a pasta onde estão suas rotas
 }
 
 export const swaggerSpec = swaggerJsdoc(swaggerOptions)

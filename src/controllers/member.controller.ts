@@ -19,7 +19,8 @@ export const createMember = async (req: Request, res: Response) => {
       status: validatedData.status || 'ATIVO',
       notes: validatedData.notes,
       emergencyContactName: validatedData.emergencyContactName,
-      emergencyContactPhone: validatedData.emergencyContactPhone
+      emergencyContactPhone: validatedData.emergencyContactPhone,
+      avatarUrl: validatedData.avatarUrl ? validatedData.avatarUrl : 'https://avatar.iran.liara.run/username?username=' + validatedData.fullName
     }
 
     // Criação do membro
@@ -37,7 +38,8 @@ export const createMember = async (req: Request, res: Response) => {
         email: data.email!,
         passwordHash,
         memberId: member.id,
-        role: 'MEMBER'
+        role: 'MEMBER',
+        avatar: data.avatarUrl
       }
     })
 
@@ -45,7 +47,7 @@ export const createMember = async (req: Request, res: Response) => {
       userId: createdUser.id,
       content: 'Sua conta foi criada com sucesso! Faça login para acessar o sistema.',
       target: createdUser.name,
-      image: 'https://avatar.iran.liara.run/username?username=' + createdUser.name,
+      image: data.avatarUrl,
       type: 2,
       status: 'succeed'
     })

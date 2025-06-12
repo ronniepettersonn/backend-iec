@@ -4,15 +4,24 @@ import { createCultScheduleSchema, updateCultScheduleSchema } from '../validatio
 
 // Criar uma nova escala de culto
 export const createCultSchedule = async (req: Request, res: Response) => {
-    const result = createCultScheduleSchema.safeParse(req.body)
+  const result = createCultScheduleSchema.safeParse(req.body)
 
-    if (!result.success) {
+  if (!result.success) {
     return res.status(400).json({ error: result.error.format() })
   }
 
   const { cultId, preacherId, directorId, notes } = result.data
 
+  const existingSchedule = await prisma.cultSchedule.findFirst({
+    where: { cultId }
+  })
+
+  if (existingSchedule) {
+    return res.status(400).json({ error: 'Este culto já possui uma escala cadastrada.' })
+  }
+
   try {
+    // Cria a escala
     const newSchedule = await prisma.cultSchedule.create({
       data: {
         cultId,
@@ -24,6 +33,68 @@ export const createCultSchedule = async (req: Request, res: Response) => {
         preacher: true,
         director: true,
         cult: true
+      }
+    })
+
+    const preacherMember = await prisma.member.findUnique({
+      where: { id: preacherId },
+      include: { user: true }
+    })
+
+    const directorMember = await prisma.member.findUnique({
+      where: { id: directorId },
+      include: { user: true }
+    })
+
+    const preacherUser = preacherMember?.user
+    const directorUser = directorMember?.user
+
+    if (!preacherUser || !directorUser) {
+      return res.status(400).json({ error: 'Usuário não encontrado para o membro escalado' })
+    }
+
+    const notifications = []
+
+    if (preacherUser) {
+      notifications.push(prisma.notification.create({
+        data: {
+          userId: preacherUser.id,
+          content: `Você foi escalado para pregar no culto do dia ${new Date(newSchedule.cult.date).toLocaleDateString()}`,
+          target: 'Escala de Culto',
+          image: `https://avatar.iran.liara.run/username?username=${preacherUser?.name}`,
+          type: 1,
+          location: `/cult-schedule`,
+          locationLabel: 'Escala de Pregação',
+          status: 'info',
+          read: false
+        }
+      }))
+    }
+
+    if (directorUser) {
+      notifications.push(prisma.notification.create({
+        data: {
+          userId: directorUser.id,
+          content: `Você foi escalado para dirigir o culto do dia ${new Date(newSchedule.cult.date).toLocaleDateString()}`,
+          target: 'Escala de Culto',
+          image: `https://avatar.iran.liara.run/username?username=${directorUser?.name}`,
+          type: 1,
+          location: `/cult-schedule`,
+          locationLabel: 'Escala de Pregação',
+          status: 'info',
+          read: false
+        }
+      }))
+    }
+
+    await Promise.all(notifications)
+
+    // Atualiza o culto com os IDs
+    await prisma.cult.update({
+      where: { id: cultId },
+      data: {
+        preacherId,
+        directorId
       }
     })
 

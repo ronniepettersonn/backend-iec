@@ -25,19 +25,20 @@ export const register = async (req: Request, res:Response) => {
       return res.status(400).json({ error: 'E-mail já cadastrado.' })
     }
 
+    // Criar o avatar default
+    const avatarUrl = `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(name)}&fontFamily=Helvetica&fontSize=36`
+
     // Cria o membro
     const member = await prisma.member.create({
       data: {
         fullName: name,
-        email
+        email,
+        avatarUrl
       }
     })
 
     // Cria o usuário vinculado ao membro
     const passwordHash = await bcrypt.hash(password, 10)
-
-    // Criar o avatar default
-    const avatarUrl = `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(name)}&fontFamily=Helvetica&fontSize=36`
 
     const user = await prisma.user.create({
       data: {

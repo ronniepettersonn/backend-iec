@@ -16,7 +16,8 @@ export const createMemberSchema = z.object({
   status: z.enum(['ATIVO', 'INATIVO', 'AUSENTE']).optional(),
   notes: z.string().optional(),
   emergencyContactName: z.string().optional(),
-  emergencyContactPhone: z.string().optional()
+  emergencyContactPhone: z.string().optional(),
+  avatarUrl: z.string().optional()
 })
 
 export type CreateMemberDTO = z.infer<typeof createMemberSchema>

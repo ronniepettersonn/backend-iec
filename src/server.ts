@@ -23,8 +23,11 @@ import categoryRoutes from './routes/category.routes'
 import recurrenceRoutes from './routes/recurrence.routes'
 import reportRoutes from './routes/report.routes'
 import cashRoutes from './routes/cash.routes'
+import accountPayable from './routes/accountPayable.routes'
+import accountReceivable from './routes/accountReceivable.routes'
 import { swaggerSpec } from './config/swaggerConfig'
 import swaggerUi from 'swagger-ui-express'
+import { startRecurrenceStatusJob } from './jobs/recurrenceStatus.job'
 
 
 dotenv.config()
@@ -56,10 +59,14 @@ app.use('/categories', categoryRoutes)
 app.use('/recurrences', recurrenceRoutes)
 app.use('/reports', reportRoutes)
 app.use('/cash', cashRoutes)
+app.use('/accounts-payable', accountPayable)
+app.use('/accounts-receivable', accountReceivable)
 
 app.use('/upload', uploadRoutes)
 
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec))
+
+startRecurrenceStatusJob()
 
 app.listen(PORT, () => {
   console.log(`Servidor rodando em http://localhost:${PORT}`)

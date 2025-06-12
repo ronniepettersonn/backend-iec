@@ -15,7 +15,7 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
-    "@prisma/client": "^6.8.2",
+    "@prisma/client": "^6.9.0",
     "@supabase/supabase-js": "^2.49.8",
     "bcryptjs": "^3.0.2",
     "cors": "^2.8.5",
@@ -26,6 +26,7 @@
     "google-auth-library": "^9.15.1",
     "jsonwebtoken": "^9.0.2",
     "multer": "^2.0.0",
+    "node-cron": "^4.1.0",
     "pdfkit": "^0.17.1",
     "resend": "^4.5.1",
     "swagger-jsdoc": "^6.2.8",
@@ -43,7 +44,7 @@
     "@types/swagger-jsdoc": "^6.0.4",
     "@types/swagger-ui-express": "^4.1.8",
     "nodemon": "^3.1.10",
-    "prisma": "^6.8.2",
+    "prisma": "^6.9.0",
     "ts-node": "^10.9.2",
     "typescript": "^5.8.3"
   }

@@ -10,18 +10,15 @@ export const getFinancialDashboard = async (req: Request, res: Response) => {
     const today = new Date()
     today.setHours(0, 0, 0, 0)
 
-    // Pega todas as transações
     const transactions = await prisma.transaction.findMany({
       where: { createdById: req.userId },
       orderBy: { date: 'asc' },
     })
 
-    // Pega o caixa de hoje
     const cash = await prisma.dailyCash.findUnique({
       where: { date: today }
     })
 
-    // Soma total de INCOME e EXPENSE
     const totalIncome = transactions
       .filter(tx => tx.type === 'INCOME')
       .reduce((acc, tx) => acc + tx.amount, 0)
@@ -32,20 +29,27 @@ export const getFinancialDashboard = async (req: Request, res: Response) => {
 
     const balance = totalIncome - totalExpense
 
-    // Agrupamento por mês (ano-mês)
-    const monthlySummaryMap = transactions.reduce((acc, tx) => {
+    // 🔄 Novo agrupamento consolidado por mês
+    const monthlyMap = new Map<string, { income: number, expense: number }>()
+
+    for (const tx of transactions) {
       const yearMonth = tx.date.toISOString().slice(0, 7)
-      const key = `${tx.type}_${yearMonth}`
-      acc[key] = (acc[key] || 0) + tx.amount
-      return acc
-    }, {} as Record<string, number>)
+      const entry = monthlyMap.get(yearMonth) || { income: 0, expense: 0 }
 
-    const monthlySummary = Object.entries(monthlySummaryMap).map(([key, amount]) => {
-      const [type, yearMonth] = key.split('_')
-      return { type, yearMonth, amount }
-    })
+      if (tx.type === 'INCOME') entry.income += tx.amount
+      else if (tx.type === 'EXPENSE') entry.expense += tx.amount
 
-    // Agrupamento por categoria
+      monthlyMap.set(yearMonth, entry)
+    }
+
+    const monthlySummary = Array.from(monthlyMap.entries()).map(([month, { income, expense }]) => ({
+      month,
+      income,
+      expense,
+      balance: income - expense
+    }))
+
+    // ✅ Mantém agrupamento por categoria
     const categorySummaryMap = transactions.reduce((acc, tx) => {
       if (!tx.categoryId) return acc
       const key = `${tx.type}_${tx.categoryId}`
@@ -58,7 +62,6 @@ export const getFinancialDashboard = async (req: Request, res: Response) => {
       return { type, category, amount }
     })
 
-    // Monta resposta final
     return res.json({
       totalIncome,
       totalExpense,

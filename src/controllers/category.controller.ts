@@ -1,25 +1,36 @@
 import { Request, Response } from 'express'
 import { prisma } from '../prisma/client'
+import { createCategorySchema } from '../validations/category.validation'
 
 export const createCategory = async (req: Request, res: Response) => {
-  const { name, description } = req.body
-
   try {
+    const validated = createCategorySchema.parse(req.body)
+
     const category = await prisma.category.create({
-      data: { name, description },
+      data: validated
     })
+
     return res.status(201).json(category)
-  } catch (error) {
+  } catch (error: any) {
     console.error(error)
+    if (error.name === 'ZodError') {
+      return res.status(400).json({ error: error.errors })
+    }
     return res.status(500).json({ error: 'Erro ao criar categoria' })
   }
 }
 
-export const listCategories = async (_req: Request, res: Response) => {
+export const listCategories = async (req: Request, res: Response) => {
+  const { type } = req.query
+
   try {
     const categories = await prisma.category.findMany({
+      where: type && type !== 'ALL'
+        ? { type: type as 'INCOME' | 'EXPENSE' }
+        : undefined,
       orderBy: { name: 'asc' },
     })
+
     return res.json(categories)
   } catch (error) {
     console.error(error)
@@ -29,13 +40,18 @@ export const listCategories = async (_req: Request, res: Response) => {
 
 export const updateCategory = async (req: Request, res: Response) => {
   const { id } = req.params
-  const { name, description } = req.body
+  const { name, description, type } = req.body
 
   try {
+    if (type !== 'INCOME' && type !== 'EXPENSE') {
+      return res.status(400).json({ error: 'Tipo inválido. Use INCOME ou EXPENSE.' })
+    }
+
     const category = await prisma.category.update({
       where: { id },
-      data: { name, description },
+      data: { name, description, type },
     })
+
     return res.json(category)
   } catch (error) {
     console.error(error)

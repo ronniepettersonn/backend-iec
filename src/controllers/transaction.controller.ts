@@ -13,19 +13,71 @@ export const createTransaction = async (req: Request, res: Response) => {
     const userId = req.userId
     const validatedData = createTransactionSchema.parse(req.body)
 
-    await ensureDailyCashOpen(userId)
+    // Garante que o caixa de hoje está aberto
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+
+    const dailyCash = await ensureDailyCashOpen(userId)
+
+    if (!dailyCash) {
+      return res.status(400).json({
+        error: 'Caixa do dia não está disponível. Tente novamente mais tarde ou contate o administrador.',
+      })
+    }
+
+    // Só permite lançamento para o dia do caixa
+    const transactionDate = new Date(validatedData.date)
+    transactionDate.setHours(0, 0, 0, 0)
+
+    if (transactionDate.getTime() !== today.getTime()) {
+      return res.status(400).json({
+        error: 'As transações só podem ser lançadas na data atual com o caixa aberto.',
+      })
+    }
+
+    // Se for EXPENSE, verifica saldo disponível
+    if (validatedData.type === 'EXPENSE') {
+      const transactions = await prisma.transaction.findMany({
+        where: {
+          date: {
+            gte: dailyCash.date,
+            lt: new Date(dailyCash.date.getTime() + 24 * 60 * 60 * 1000),
+          },
+        },
+      })
+
+      const saldoAtual = dailyCash.openingAmount +
+        transactions.filter(tx => tx.type === 'INCOME').reduce((acc, tx) => acc + tx.amount, 0) -
+        transactions.filter(tx => tx.type === 'EXPENSE').reduce((acc, tx) => acc + tx.amount, 0)
+
+      if (validatedData.amount > saldoAtual) {
+        return res.status(400).json({ error: 'Saldo insuficiente no caixa para realizar esta transação' })
+      }
+    }
 
     const newTransaction = await prisma.transaction.create({
       data: {
         ...validatedData,
         date: new Date(validatedData.date),
-        createdById: userId
-      }
+        createdById: userId,
+      },
+    })
+
+    // Log opcional
+    await prisma.logEntry.create({
+      data: {
+        action: 'CREATE',
+        entity: 'Transaction',
+        entityId: newTransaction.id,
+        userId,
+        description: `Transação de ${validatedData.type} no valor de R$ ${validatedData.amount}`,
+      },
     })
 
     return res.status(201).json(newTransaction)
   } catch (error: any) {
-    return res.status(400).json({ error: error.message })
+    console.error('Erro ao criar transação:', error)
+    return res.status(400).json({ error: error.message || 'Erro ao criar transação' })
   }
 }
 
@@ -35,53 +87,59 @@ export const listTransactions = async (req: Request, res: Response) => {
       return res.status(401).json({ error: 'Usuário não autenticado' })
     }
 
-    const { page = '1', limit = '10', type, category, startDate, endDate } = req.query
-    const pageNumber = parseInt(page as string)
-    const pageSize = parseInt(limit as string)
-    const skip = (pageNumber - 1) * pageSize
+    const userId = req.userId
+    const {
+      startDate,
+      endDate,
+      type,
+      page = 1,
+      perPage = 10
+    } = req.query
 
-    const where: any = {
-      createdById: req.userId,
-      ...(type ? { type: type as TransactionType } : {}),
-      ...(category ? { category: category as string } : {})
+    const filters: any = {
+      createdById: userId,
     }
 
-    if (startDate && endDate) {
-      where.date = {
-        gte: new Date(startDate as string),
-        lte: new Date(new Date(endDate as string).setHours(23, 59, 59, 999))
-      }
+    if (type && (type === 'INCOME' || type === 'EXPENSE')) {
+      filters.type = type
     }
 
-    const transactions = await prisma.transaction.findMany({
-      where,
-      skip,
-      take: pageSize,
-      orderBy: { date: 'desc' },
-      include: {
-        createdBy: {
-          select: {
-            id: true,
-            name: true,
-            email: true
+    if (startDate || endDate) {
+      filters.date = {}
+      if (startDate) filters.date.gte = new Date(startDate as string)
+      if (endDate) filters.date.lte = new Date(endDate as string)
+    }
+
+    const skip = (Number(page) - 1) * Number(perPage)
+
+    const [transactions, total] = await Promise.all([
+      prisma.transaction.findMany({
+        where: filters,
+        orderBy: { date: 'desc' },
+        include: {
+          category: true,
+          createdBy: {
+            select: {
+              id: true,
+              name: true,
+            }
           }
-        }
-      }
-    })
-
-    const totalCount = await prisma.transaction.count({ where })
+        },
+        skip,
+        take: Number(perPage)
+      }),
+      prisma.transaction.count({ where: filters })
+    ])
 
     return res.json({
       data: transactions,
-      meta: {
-        total: totalCount,
-        page: pageNumber,
-        perPage: pageSize,
-        totalPages: Math.ceil(totalCount / pageSize),
-      },
+      total,
+      page: Number(page),
+      perPage: Number(perPage),
+      totalPages: Math.ceil(total / Number(perPage))
     })
-  } catch (error) {
-    console.error(error)
-    return res.status(500).json({ error: 'Erro ao listar transações' })
+  } catch (error: any) {
+    console.error('[listTransactions] ERRO:', error)
+    return res.status(500).json({ error: 'Erro ao buscar transações financeiras' })
   }
 }

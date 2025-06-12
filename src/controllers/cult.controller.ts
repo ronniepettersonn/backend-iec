@@ -20,10 +20,12 @@ export const createCult = async (req: Request, res: Response) => {
     offeringsCount,
     designatedOfferings,
     notes,
+    preacherId,
+    directorId
   } = req.body
 
   try {
-    const cult = await prisma.cult.create({
+    const createdCult = await prisma.cult.create({
       data: {
         date: new Date(date),
         typeId,
@@ -42,10 +44,69 @@ export const createCult = async (req: Request, res: Response) => {
         offeringsCount,
         designatedOfferings,
         notes,
-      },
+      }
     })
 
-    return res.status(201).json(cult)
+    if (preacherId && directorId) {
+  const existingSchedule = await prisma.cultSchedule.findFirst({
+    where: { cultId: createdCult.id }
+  })
+
+  
+
+    if (preacherId && directorId) {
+
+      if (!existingSchedule) {
+        await prisma.cultSchedule.create({
+          data: {
+            cultId: createdCult.id,
+            preacherId,
+            directorId,
+            notes: `Escala criada automaticamente junto ao culto`
+          }
+        })
+      } else {
+        console.warn('Culto já possui uma escala, não foi criada uma nova.')
+      }
+    }
+
+      // Enviar notificações
+      const [preacherUser, directorUser] = await Promise.all([
+        prisma.user.findUnique({ where: { id: preacherId } }),
+        prisma.user.findUnique({ where: { id: directorId } })
+      ])
+
+      const dateFormatted = new Date(date).toLocaleDateString()
+
+      await prisma.notification.createMany({
+        data: [
+          {
+            userId: preacherId,
+            content: `Você foi escalado para pregar no culto do dia ${dateFormatted}`,
+            target: 'Escala de Culto',
+            image: `https://avatar.iran.liara.run/username?username=${preacherUser?.name}`,
+            type: 1,
+            location: `/cultos`,
+            locationLabel: 'Cultos',
+            status: 'info',
+            read: false
+          },
+          {
+            userId: directorId,
+            content: `Você foi escalado para dirigir o culto do dia ${dateFormatted}`,
+            target: 'Escala de Culto',
+            image: `https://avatar.iran.liara.run/username?username=${directorUser?.name}`,
+            type: 1,
+            location: `/cultos`,
+            locationLabel: 'Cultos',
+            status: 'info',
+            read: false
+          }
+        ]
+      })
+    }
+
+    return res.status(201).json(createdCult)
   } catch (error) {
     console.error(error)
     return res.status(500).json({ error: 'Erro ao criar culto' })

@@ -45,7 +45,12 @@ model Member {
   preacherInSchedules CultSchedule[] @relation("PreacherSchedule")
   directorInSchedules CultSchedule[] @relation("DirectorSchedule")
 
-  appointments AppointmentMember[]
+  appointments      AppointmentMember[]
+  AccountReceivable AccountReceivable[]
+  Cult              Cult[]
+
+  preachedCults Cult[] @relation("CultPreacher")
+  directedCults Cult[] @relation("CultDirector")
 }
 
 model User {
@@ -82,11 +87,12 @@ model User {
 
   PasswordResetToken PasswordResetToken[]
 
-  EmailsSent        Email[]          @relation("EmailsSent")
-  EmailMessagesSent EmailMessage[]   @relation("EmailMessagesSent")
+  EmailsSent        Email[]             @relation("EmailsSent")
+  EmailMessagesSent EmailMessage[]      @relation("EmailMessagesSent")
   EmailRecipient    EmailRecipient[]
-
-  DailyCash DailyCash[]
+  AccountPayable    AccountPayable[]
+  LogEntry          LogEntry[]
+  AccountReceivable AccountReceivable[]
 }
 
 enum Role {
@@ -113,6 +119,9 @@ model Transaction {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  dailyCashId String?
+  dailyCash   DailyCash? @relation(fields: [dailyCashId], references: [id])
 }
 
 enum TransactionType {
@@ -324,8 +333,13 @@ model Cult {
   type   CultType @relation(fields: [typeId], references: [id])
 
   theme    String?
-  preacher String?
   location String?
+
+  preacherId String?
+  preacher   Member? @relation("CultPreacher", fields: [preacherId], references: [id])
+
+  directorId String?
+  director   Member? @relation("CultDirector", fields: [directorId], references: [id])
 
   totalPeople        Int?
   visitors           Int?
@@ -347,6 +361,8 @@ model Cult {
   updatedAt DateTime  @updatedAt
 
   schedule CultSchedule[]
+
+  Member Member[]
 }
 
 model CultType {
@@ -375,26 +391,35 @@ model CultSchedule {
 }
 
 model Category {
-  id           String        @id @default(uuid())
-  name         String
-  description  String?
+  id          String  @id @default(uuid())
+  name        String
+  description String?
+
+  type TransactionType
+
   transactions Transaction[]
 
-  Recurrence Recurrence[]
+  Recurrence        Recurrence[]
+  AccountPayable    AccountPayable[]
+  AccountReceivable AccountReceivable[]
 }
 
 model Recurrence {
   id          String    @id @default(uuid())
   startDate   DateTime
   endDate     DateTime?
+  dueDay      Int       @default(1)
   frequency   String
   amount      Float
   description String?
 
+  status String @default("active") // 'active', 'finished', 'overdue', etc.
+
   categoryId String?
   category   Category? @relation(fields: [categoryId], references: [id])
 
-  transactions Transaction[]
+  transactions   Transaction[]
+  AccountPayable AccountPayable[]
 }
 
 model DailyCash {
@@ -403,8 +428,65 @@ model DailyCash {
   openingAmount Float    @default(0)
   closingAmount Float?
   notes         String?
-  createdById   String
-  createdBy     User     @relation(fields: [createdById], references: [id])
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  createdById   String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  transactions Transaction[]
+}
+
+model AccountPayable {
+  id          String   @id @default(uuid())
+  dueDate     DateTime
+  amount      Float
+  description String
+
+  paid   Boolean   @default(false)
+  paidAt DateTime?
+
+  recurrenceId String?
+  recurrence   Recurrence? @relation(fields: [recurrenceId], references: [id])
+
+  categoryId String?
+  category   Category? @relation(fields: [categoryId], references: [id])
+
+  createdById String
+  createdBy   User   @relation(fields: [createdById], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model LogEntry {
+  id          String   @id @default(uuid())
+  action      String // 'CREATE', 'UPDATE', 'DELETE'
+  entity      String // 'AccountPayable', 'Transaction', etc.
+  entityId    String
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  description String?
+  createdAt   DateTime @default(now())
+}
+
+model AccountReceivable {
+  id          String   @id @default(uuid())
+  dueDate     DateTime
+  amount      Float
+  description String
+
+  received   Boolean   @default(false)
+  receivedAt DateTime?
+
+  memberId String?
+  member   Member? @relation(fields: [memberId], references: [id])
+
+  categoryId String?
+  category   Category? @relation(fields: [categoryId], references: [id])
+
+  createdById String
+  createdBy   User   @relation(fields: [createdById], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }

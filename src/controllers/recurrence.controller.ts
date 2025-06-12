@@ -1,18 +1,36 @@
 import { Request, Response } from 'express'
 import { prisma } from '../prisma/client'
 import { createRecurrenceSchema, updateRecurrenceSchema } from '../validations/recurrence.validation'
+import { generateAccountsFromRecurrence } from '../services/recurrence.service'
 
 export const createRecurrence = async (req: Request, res: Response) => {
   try {
     const validatedData = createRecurrenceSchema.parse(req.body)
 
+    const now = new Date()
+    const endDate = validatedData.endDate ? new Date(validatedData.endDate) : undefined
+
+    // 📌 Define status baseado na data final
+    let status: 'active' | 'completed' | 'expired' = 'active'
+
+    if (endDate && endDate < now) {
+      status = 'expired'
+    }
+
     const newRecurrence = await prisma.recurrence.create({
       data: {
         ...validatedData,
         startDate: new Date(validatedData.startDate),
-        endDate: validatedData.endDate ? new Date(validatedData.endDate) : undefined
+        endDate,
+        status,
       }
     })
+
+    if (!req.userId) {
+      return res.status(401).json({ error: 'Usuário não autenticado' })
+    }
+
+    await generateAccountsFromRecurrence(newRecurrence, req.userId)
 
     return res.status(201).json(newRecurrence)
   } catch (error: any) {
