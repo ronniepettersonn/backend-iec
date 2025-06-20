@@ -182,6 +182,8 @@ export const updateProfilePicture = async (req: Request, res: Response) => {
         upsert: true, // sobrescreve se já existir (opcional)
       });
 
+      console.log('CHEGA AQUI', uploadError)
+
     if (uploadError) {
       console.error(uploadError);
       return res.status(500).json({ error: 'Erro ao fazer upload da foto' });
@@ -196,6 +198,8 @@ export const updateProfilePicture = async (req: Request, res: Response) => {
       where: { id: userId },
       data: { avatar: publicUrl.publicUrl },
     });
+
+    
 
     return res.status(200).json({
       message: 'Foto de perfil atualizada com sucesso!',

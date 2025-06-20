@@ -320,7 +320,8 @@ export const uploadAccountPayableAttachment = async (req: Request, res: Response
     const updated = await prisma.accountPayable.update({
       where: { id: accountPayableId },
       data: {
-        attachmentUrl: upload.publicUrl
+        attachmentUrl: upload.publicUrl,
+        fileName: req.file.originalname
       }
     })
 

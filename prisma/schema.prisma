@@ -25,7 +25,6 @@ model Member {
   address        String?
   city           String?
   state          String?
-  role           String? // Ex: membro, líder, pastor
   maritalStatus  String? // Ex: solteiro, casado
   avatarUrl      String?
   status         String    @default("ATIVO")
@@ -51,6 +50,16 @@ model Member {
 
   preachedCults Cult[] @relation("CultPreacher")
   directedCults Cult[] @relation("CultDirector")
+
+  roles MemberRole[] @relation("MemberRoles")
+}
+
+model MemberRole {
+  id    String  @id @default(uuid())
+  name  String  @unique // identificador do papel (ex: "PASTOR")
+  label String? // nome amigável (ex: "Pastor")
+
+  members Member[] @relation("MemberRoles")
 }
 
 model User {
@@ -93,6 +102,8 @@ model User {
   AccountPayable    AccountPayable[]
   LogEntry          LogEntry[]
   AccountReceivable AccountReceivable[]
+
+  Post Post[]
 }
 
 enum Role {
@@ -443,6 +454,7 @@ model AccountPayable {
   description String
 
   attachmentUrl String?
+  fileName      String?
 
   paid   Boolean   @default(false)
   paidAt DateTime?
@@ -491,4 +503,68 @@ model AccountReceivable {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model Post {
+  id          String    @id @default(uuid())
+  title       String
+  slug        String    @unique
+  content     String
+  excerpt     String?
+  imageUrl    String?
+  published   Boolean   @default(false)
+  publishedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  categoryId String?
+  category   PostCategory? @relation(fields: [categoryId], references: [id])
+
+  authorId String
+  author   User   @relation(fields: [authorId], references: [id])
+
+  PostTagsOnPosts PostTagsOnPosts[]
+
+  PostComment PostComment[]
+}
+
+model PostCategory {
+  id          String  @id @default(uuid())
+  name        String
+  slug        String  @unique
+  description String?
+
+  posts Post[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model PostTag {
+  id   String @id @default(uuid())
+  name String @unique
+
+  posts PostTagsOnPosts[]
+}
+
+model PostTagsOnPosts {
+  postId String
+  tagId  String
+
+  post Post    @relation(fields: [postId], references: [id])
+  tag  PostTag @relation(fields: [tagId], references: [id])
+
+  @@id([postId, tagId])
+}
+
+model PostComment {
+  id        String   @id @default(uuid())
+  postId    String
+  userId    String?
+  author    String?
+  email     String?
+  content   String
+  createdAt DateTime @default(now())
+
+  post Post @relation(fields: [postId], references: [id])
 }

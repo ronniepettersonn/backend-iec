@@ -28,7 +28,9 @@ import accountReceivable from './routes/accountReceivable.routes'
 import { swaggerSpec } from './config/swaggerConfig'
 import swaggerUi from 'swagger-ui-express'
 import { startRecurrenceStatusJob } from './jobs/recurrenceStatus.job'
-
+import memberRoleRoutes from './routes/memberRole.routes'
+import postRoutes from './routes/post.routes'
+import postCategoryRoutes from './routes/postCategory.routes'
 
 dotenv.config()
 
@@ -40,6 +42,7 @@ app.use(express.json())
 
 app.use('/auth', authRoutes)
 app.use('/members', memberRoutes)
+app.use('/member-roles', memberRoleRoutes)
 app.use('/users', userRoutes)
 app.use('/transactions', transactionRoutes)
 app.use('/finance', dashboardRoutes)
@@ -61,6 +64,8 @@ app.use('/reports', reportRoutes)
 app.use('/cash', cashRoutes)
 app.use('/accounts-payable', accountPayable)
 app.use('/accounts-receivable', accountReceivable)
+app.use('/posts', postRoutes)
+app.use('/post-categories', postCategoryRoutes)
 
 app.use('/upload', uploadRoutes)
 

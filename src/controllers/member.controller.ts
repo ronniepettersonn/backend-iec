@@ -113,6 +113,9 @@ export async function getMemberById(req: Request, res: Response) {
 
     const member = await prisma.member.findUnique({
       where: { id },
+      include: {
+        roles: true
+      }
     })
 
     if (!member) {
@@ -214,5 +217,51 @@ export const updateAvatar = async (req: Request, res: Response) => {
   } catch (error) {
     console.error(error)
     return res.status(500).json({ error: 'Erro ao atualizar a foto do perfil' })
+  }
+}
+
+export const createMemberRole = async (req: Request, res: Response) => {
+  try {
+    const { name, label } = req.body
+
+    const role = await prisma.memberRole.create({
+      data: { name, label }
+    })
+
+    return res.status(201).json(role)
+  } catch (error) {
+    console.error(error)
+    return res.status(500).json({ error: 'Erro ao criar papel de membro' })
+  }
+}
+
+export const assignRolesToMember = async (req: Request, res: Response) => {
+  const { memberId, roleIds } = req.body
+
+  try {
+    const updated = await prisma.member.update({
+      where: { id: memberId },
+      data: {
+        roles: {
+          set: [], // limpa os anteriores se quiser sobrescrever
+          connect: roleIds.map((id: string) => ({ id }))
+        }
+      },
+      include: { roles: true }
+    })
+
+    return res.json(updated)
+  } catch (error) {
+    console.error(error)
+    return res.status(500).json({ error: 'Erro ao atribuir papéis ao membro' })
+  }
+}
+
+export const listMemberRoles = async (_req: Request, res: Response) => {
+  try {
+    const roles = await prisma.memberRole.findMany({ orderBy: { label: 'asc' } })
+    return res.json(roles)
+  } catch (error) {
+    return res.status(500).json({ error: 'Erro ao listar papéis de membros' })
   }
 }
