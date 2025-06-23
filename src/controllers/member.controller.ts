@@ -8,7 +8,12 @@ import { uploadFileToSupabase } from '../utils/uploadFile'
 
 export const createMember = async (req: Request, res: Response) => {
   try {
+    const churchId = req.churchId
     const validatedData = createMemberSchema.parse(req.body)
+
+    if (!churchId) {
+      return res.status(403).json({ error: 'Igreja não identificada para este usuário' })
+    }
 
     const data = {
       ...validatedData,
@@ -20,13 +25,16 @@ export const createMember = async (req: Request, res: Response) => {
       notes: validatedData.notes,
       emergencyContactName: validatedData.emergencyContactName,
       emergencyContactPhone: validatedData.emergencyContactPhone,
-      avatarUrl: validatedData.avatarUrl ? validatedData.avatarUrl : 'https://avatar.iran.liara.run/username?username=' + validatedData.fullName
+      avatarUrl: validatedData.avatarUrl
+        ? validatedData.avatarUrl
+        : `https://avatar.iran.liara.run/username?username=${validatedData.fullName}`,
     }
 
     // Criação do membro
     const member = await prisma.member.create({
       data: {
         ...data,
+        churchId,
       }
     })
 
@@ -39,7 +47,8 @@ export const createMember = async (req: Request, res: Response) => {
         passwordHash,
         memberId: member.id,
         role: 'MEMBER',
-        avatar: data.avatarUrl
+        avatar: data.avatarUrl,
+        churchId
       }
     })
 
@@ -49,7 +58,8 @@ export const createMember = async (req: Request, res: Response) => {
       target: createdUser.name,
       image: data.avatarUrl,
       type: 2,
-      status: 'succeed'
+      status: 'succeed',
+      churchId: req.churchId!
     })
 
     return res.status(201).json({ message: 'Membro e usuário criados com sucesso.' })

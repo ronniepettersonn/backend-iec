@@ -17,20 +17,24 @@ export const createRecurrence = async (req: Request, res: Response) => {
       status = 'expired'
     }
 
+    const userId = req.userId
+    const churchId = req.churchId
+
+    if (!userId || !churchId) {
+      return res.status(401).json({ error: 'Usuário ou igreja não autenticados' })
+    }
+
     const newRecurrence = await prisma.recurrence.create({
       data: {
         ...validatedData,
         startDate: new Date(validatedData.startDate),
         endDate,
         status,
+        churchId
       }
     })
 
-    if (!req.userId) {
-      return res.status(401).json({ error: 'Usuário não autenticado' })
-    }
-
-    await generateAccountsFromRecurrence(newRecurrence, req.userId)
+    await generateAccountsFromRecurrence(newRecurrence, userId, churchId)
 
     return res.status(201).json(newRecurrence)
   } catch (error: any) {
@@ -39,18 +43,28 @@ export const createRecurrence = async (req: Request, res: Response) => {
   }
 }
 
-export const listRecurrences = async (_req: Request, res: Response) => {
+
+export const listRecurrences = async (req: Request, res: Response) => {
   try {
+    const churchId = req.churchId
+
+    if (!churchId) {
+      return res.status(401).json({ error: 'Igreja não autenticada' })
+    }
+
     const recurrences = await prisma.recurrence.findMany({
+      where: { churchId },
       include: { category: true },
       orderBy: { startDate: 'desc' }
     })
+
     return res.json(recurrences)
   } catch (error) {
     console.error(error)
     return res.status(500).json({ error: 'Erro ao listar recorrências' })
   }
 }
+
 
 export const updateRecurrence = async (req: Request, res: Response) => {
   const { id } = req.params

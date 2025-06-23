@@ -1,11 +1,11 @@
 import { Request, Response } from 'express'
 import { prisma } from '../prisma/client'
-import { registerUserSchema } from '../validations/auth.validation'
+//import { registerUserSchema } from '../validations/auth.validation'
 import bcrypt, { compare, hash } from 'bcryptjs'
 import jwt from 'jsonwebtoken'
 import { loginUserSchema } from '../validations/auth.validation'
-import { addMinutes } from 'date-fns'
-import crypto from 'crypto'
+//import { addMinutes } from 'date-fns'
+//import crypto from 'crypto'
 import { createPasswordResetToken } from '../services/token.service'
 import { sendEmail } from '../services/email.service'
 import { sendNotification } from '../utils/sendNotification'
@@ -15,7 +15,7 @@ const JWT_SECRET = process.env.JWT_SECRET || 'defaultsecret' // ideal usar vari�
 
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID)
 
-export const register = async (req: Request, res:Response) => {
+/* export const register = async (req: Request, res:Response) => {
   try {
     const { name, email, password } = req.body
 
@@ -56,7 +56,7 @@ export const register = async (req: Request, res:Response) => {
     console.error(err)
     return res.status(500).json({ error: 'Erro ao registrar usuário.' })
   }
-}
+} */
 
 export const login = async (req: Request, res: Response) => {
   try {
@@ -76,7 +76,11 @@ export const login = async (req: Request, res: Response) => {
 
     // Geração do token
     const token = jwt.sign(
-      { id: user.id, role: user.role },
+      { 
+        id: user.id, 
+        role: user.role, 
+        churchId: user.churchId, 
+      },
       JWT_SECRET,
       { expiresIn: '1d' }
     )
@@ -127,7 +131,8 @@ export const changePassword = async (req: Request, res: Response) => {
       target: user?.name,
       image: 'https://avatar.iran.liara.run/username?username=' + user?.name,
       type: 2,
-      status: 'succeed'
+      status: 'succeed',
+      churchId: req.churchId!
     })
 
     return res.status(200).json({ message: 'Senha alterada com sucesso' })
@@ -206,6 +211,46 @@ export const loginWithGoogle = async (req: Request, res: Response) => {
 
   return res.json({ message: 'Token enviado com sucesso', resetLink })
 } */
+
+  export const definirSenha = async (req: Request, res: Response) => {
+  try {
+    const { token, newPassword } = req.body;
+
+    if (!token || !newPassword) {
+      return res.status(400).json({ error: 'Token e nova senha são obrigatórios.' });
+    }
+
+    const user = await prisma.user.findFirst({
+      where: {
+        resetToken: token,
+        resetTokenExpiry: {
+          gte: new Date(),
+        },
+      },
+    });
+
+    if (!user) {
+      return res.status(400).json({ error: 'Token inválido ou expirado.' });
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        passwordHash: hashedPassword,
+        resetToken: null,
+        resetTokenExpiry: null,
+        firstLogin: false,
+      },
+    });
+
+    return res.json({ message: 'Senha definida com sucesso. Você já pode fazer login.' });
+  } catch (error) {
+    console.error('[definirSenha]', error);
+    return res.status(500).json({ error: 'Erro ao definir senha.' });
+  }
+};
 
 export const resetPassword = async (req: Request, res: Response) => {
   const { token, newPassword } = req.body

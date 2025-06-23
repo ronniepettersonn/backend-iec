@@ -2,7 +2,11 @@ import { Recurrence } from '@prisma/client'
 import { prisma } from '../prisma/client'
 import { addMonths, setDate } from 'date-fns'
 
-export async function generateAccountsFromRecurrence(recurrence: Recurrence, userId: string) {
+export async function generateAccountsFromRecurrence(
+  recurrence: Recurrence,
+  userId: string,
+  churchId: string // ✅ novo parâmetro
+) {
   const accounts: any[] = []
 
   const maxMonths = 12
@@ -11,22 +15,24 @@ export async function generateAccountsFromRecurrence(recurrence: Recurrence, use
 
   let currentDate = new Date(start)
 
-while (true) {
-  const dueDate = setDate(new Date(currentDate), recurrence.dueDay || 1)
+  while (true) {
+    const dueDate = setDate(new Date(currentDate), recurrence.dueDay || 1)
 
-  if (dueDate > end) break
+    if (dueDate > end) break
 
-  accounts.push({
-    dueDate,
-    amount: recurrence.amount,
-    description: recurrence.description || '',
-    recurrenceId: recurrence.id,
-    categoryId: recurrence.categoryId,
-    createdById: userId,
-  })
+    accounts.push({
+      dueDate,
+      amount: recurrence.amount,
+      description: recurrence.description || '',
+      recurrenceId: recurrence.id,
+      categoryId: recurrence.categoryId,
+      createdById: userId,
+      churchId: churchId, // ✅ aqui é o ponto principal
+    })
 
-  currentDate = addMonths(currentDate, 1)
-}
+    currentDate = addMonths(currentDate, 1)
+  }
 
   await prisma.accountPayable.createMany({ data: accounts })
 }
+

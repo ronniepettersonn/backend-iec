@@ -52,6 +52,9 @@ model Member {
   directedCults Cult[] @relation("CultDirector")
 
   roles MemberRole[] @relation("MemberRoles")
+
+  churchId String
+  church   Church @relation(fields: [churchId], references: [id])
 }
 
 model MemberRole {
@@ -103,7 +106,9 @@ model User {
   LogEntry          LogEntry[]
   AccountReceivable AccountReceivable[]
 
-  Post Post[]
+  Post     Post[]
+  churchId String
+  church   Church @relation(fields: [churchId], references: [id])
 }
 
 enum Role {
@@ -111,6 +116,7 @@ enum Role {
   LEADER
   MEMBER
   PASTOR
+  FINANCE
 }
 
 model Transaction {
@@ -133,6 +139,9 @@ model Transaction {
 
   dailyCashId String?
   dailyCash   DailyCash? @relation(fields: [dailyCashId], references: [id])
+
+  churchId String
+  church   Church @relation(fields: [churchId], references: [id])
 }
 
 enum TransactionType {
@@ -150,6 +159,9 @@ model Schedule {
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
+  churchId String
+  church   Church @relation(fields: [churchId], references: [id])
+
   members Member[] @relation("ScheduleMembers")
 }
 
@@ -164,6 +176,9 @@ model Ministry {
   active      Boolean    @default(true)
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
+
+  churchId String
+  church   Church @relation(fields: [churchId], references: [id])
 }
 
 model Event {
@@ -176,6 +191,9 @@ model Event {
   createdById String
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+
+  churchId String
+  church   Church @relation(fields: [churchId], references: [id])
 }
 
 model Visitor {
@@ -195,6 +213,9 @@ model Visitor {
   contactedBy   User?     @relation(fields: [contactedById], references: [id])
 
   active Boolean @default(true)
+
+  churchId String
+  church   Church @relation(fields: [churchId], references: [id])
 }
 
 model Message {
@@ -207,6 +228,9 @@ model Message {
   read       Boolean   @default(false)
   createdAt  DateTime  @default(now())
   readAt     DateTime?
+
+  churchId String
+  church   Church @relation(fields: [churchId], references: [id])
 }
 
 model Notice {
@@ -217,6 +241,9 @@ model Notice {
   createdBy   User      @relation(fields: [createdById], references: [id])
   createdById String
   deletedAt   DateTime?
+
+  churchId String
+  church   Church @relation(fields: [churchId], references: [id])
 }
 
 model Notification {
@@ -233,6 +260,9 @@ model Notification {
   createdAt     DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id])
+
+  churchId String
+  church   Church @relation(fields: [churchId], references: [id])
 }
 
 model Appointment {
@@ -249,6 +279,9 @@ model Appointment {
   updatedAt   DateTime @updatedAt
 
   attendees AppointmentMember[]
+
+  churchId String
+  church   Church @relation(fields: [churchId], references: [id])
 }
 
 model AppointmentMember {
@@ -270,6 +303,9 @@ model Permission {
   name      String           @unique
   createdAt DateTime         @default(now())
   roles     RolePermission[]
+
+  churchId String
+  church   Church @relation(fields: [churchId], references: [id])
 }
 
 model RolePermission {
@@ -277,6 +313,9 @@ model RolePermission {
   role         Role
   permission   Permission @relation(fields: [permissionId], references: [id])
   permissionId String
+
+  churchId String
+  church   Church @relation(fields: [churchId], references: [id])
 }
 
 model PasswordResetToken {
@@ -299,6 +338,8 @@ model Email {
   group      String           @default("inbox")
   messages   EmailMessage[]
   recipients EmailRecipient[]
+
+  Church Church[]
 }
 
 model EmailMessage {
@@ -374,6 +415,9 @@ model Cult {
   schedule CultSchedule[]
 
   Member Member[]
+
+  churchId String
+  church   Church @relation(fields: [churchId], references: [id])
 }
 
 model CultType {
@@ -383,6 +427,9 @@ model CultType {
   updatedAt DateTime @updatedAt
 
   cults Cult[]
+
+  churchId String
+  church   Church @relation(fields: [churchId], references: [id])
 }
 
 model CultSchedule {
@@ -399,6 +446,9 @@ model CultSchedule {
   notes     String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  churchId String
+  church   Church @relation(fields: [churchId], references: [id])
 }
 
 model Category {
@@ -413,6 +463,9 @@ model Category {
   Recurrence        Recurrence[]
   AccountPayable    AccountPayable[]
   AccountReceivable AccountReceivable[]
+
+  churchId String
+  church   Church @relation(fields: [churchId], references: [id])
 }
 
 model Recurrence {
@@ -431,6 +484,9 @@ model Recurrence {
 
   transactions   Transaction[]
   AccountPayable AccountPayable[]
+
+  churchId String
+  church   Church @relation(fields: [churchId], references: [id])
 }
 
 model DailyCash {
@@ -445,6 +501,9 @@ model DailyCash {
   updatedAt DateTime @updatedAt
 
   transactions Transaction[]
+
+  churchId String
+  church   Church @relation(fields: [churchId], references: [id])
 }
 
 model AccountPayable {
@@ -470,6 +529,9 @@ model AccountPayable {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  churchId String
+  church   Church @relation(fields: [churchId], references: [id])
 }
 
 model LogEntry {
@@ -481,6 +543,9 @@ model LogEntry {
   user        User     @relation(fields: [userId], references: [id])
   description String?
   createdAt   DateTime @default(now())
+
+  churchId String
+  church   Church @relation(fields: [churchId], references: [id])
 }
 
 model AccountReceivable {
@@ -503,6 +568,9 @@ model AccountReceivable {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  churchId String
+  church   Church @relation(fields: [churchId], references: [id])
 }
 
 model Post {
@@ -526,6 +594,9 @@ model Post {
   PostTagsOnPosts PostTagsOnPosts[]
 
   PostComment PostComment[]
+
+  churchId String
+  church   Church @relation(fields: [churchId], references: [id])
 }
 
 model PostCategory {
@@ -538,6 +609,9 @@ model PostCategory {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  churchId String
+  church   Church @relation(fields: [churchId], references: [id])
 }
 
 model PostTag {
@@ -545,6 +619,9 @@ model PostTag {
   name String @unique
 
   posts PostTagsOnPosts[]
+
+  churchId String
+  church   Church @relation(fields: [churchId], references: [id])
 }
 
 model PostTagsOnPosts {
@@ -567,4 +644,125 @@ model PostComment {
   createdAt DateTime @default(now())
 
   post Post @relation(fields: [postId], references: [id])
+
+  churchId String
+  church   Church @relation(fields: [churchId], references: [id])
+}
+
+model Church {
+  id              String    @id @default(uuid())
+  name            String
+  fullName        String?
+  slug            String    @unique
+  logoUrl         String?
+  cnpj            String?
+  email           String?
+  phone           String?
+  website         String?
+  instagram       String?
+  facebook        String?
+  youtube         String?
+  address         String?
+  number          String?
+  neighborhood    String?
+  city            String?
+  state           String?
+  zipCode         String?
+  foundingDate    DateTime?
+  notes           String?
+  themeColor      String?
+  customDomain    String?
+  defaultLanguage String?
+
+  active Boolean @default(true)
+
+  status ChurchStatus @default(ACTIVE)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users         User[]
+  activeModules ActiveModule[]
+
+  Member Member[]
+
+  Transaction Transaction[]
+
+  Schedule Schedule[]
+
+  Ministry Ministry[]
+
+  Event Event[]
+
+  Visitor Visitor[]
+
+  Message Message[]
+
+  Notice Notice[]
+
+  Notification Notification[]
+
+  Appointment Appointment[]
+
+  Permission Permission[]
+
+  RolePermission RolePermission[]
+
+  Email Email[]
+
+  Cult Cult[]
+
+  CultType CultType[]
+
+  CultSchedule CultSchedule[]
+
+  Category Category[]
+
+  Recurrence Recurrence[]
+
+  DailyCash DailyCash[]
+
+  AccountPayable AccountPayable[]
+
+  LogEntry LogEntry[]
+
+  AccountReceivable AccountReceivable[]
+
+  Post Post[]
+
+  PostCategory PostCategory[]
+
+  PostTag PostTag[]
+
+  PostComment PostComment[]
+}
+
+enum ChurchStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+  AWAITING_APPROVAL
+}
+
+model ChurchModule {
+  id          String   @id @default(uuid())
+  name        String
+  key         String   @unique // ex: 'finance', 'blog', 'communication'
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  activeModules ActiveModule[]
+}
+
+model ActiveModule {
+  id          String   @id @default(uuid())
+  churchId    String
+  moduleId    String
+  activatedAt DateTime @default(now())
+
+  church Church       @relation(fields: [churchId], references: [id])
+  module ChurchModule @relation(fields: [moduleId], references: [id])
+
+  @@unique([churchId, moduleId])
 }

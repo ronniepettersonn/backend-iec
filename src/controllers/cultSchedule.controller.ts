@@ -10,6 +10,11 @@ export const createCultSchedule = async (req: Request, res: Response) => {
     return res.status(400).json({ error: result.error.format() })
   }
 
+  const churchId = req.churchId
+  if (!churchId) {
+    return res.status(403).json({ error: 'Igreja não identificada para este usuário' })
+  }
+
   const { cultId, preacherId, directorId, notes } = result.data
 
   const existingSchedule = await prisma.cultSchedule.findFirst({
@@ -27,7 +32,8 @@ export const createCultSchedule = async (req: Request, res: Response) => {
         cultId,
         preacherId,
         directorId,
-        notes
+        notes,
+        churchId
       },
       include: {
         preacher: true,
@@ -66,7 +72,8 @@ export const createCultSchedule = async (req: Request, res: Response) => {
           location: `/cult-schedule`,
           locationLabel: 'Escala de Pregação',
           status: 'info',
-          read: false
+          read: false,
+          churchId
         }
       }))
     }
@@ -82,7 +89,8 @@ export const createCultSchedule = async (req: Request, res: Response) => {
           location: `/cult-schedule`,
           locationLabel: 'Escala de Pregação',
           status: 'info',
-          read: false
+          read: false,
+          churchId
         }
       }))
     }

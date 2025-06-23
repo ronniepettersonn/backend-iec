@@ -5,7 +5,12 @@ import { createMessageSchema } from '../validations/message.validation'
 export const sendMessage = async (req: Request, res: Response) => {
   try {
     const senderId = req.userId!
+    const churchId = req.churchId
     const { receiverId, content } = createMessageSchema.parse(req.body)
+
+    if (!churchId) {
+      return res.status(403).json({ error: 'Igreja não identificada para este usuário' })
+    }
 
     const sender = await prisma.user.findUnique({ where: { id: senderId } })
 
@@ -13,9 +18,14 @@ export const sendMessage = async (req: Request, res: Response) => {
       data: {
         senderId,
         receiverId,
-        content
+        content,
+        churchId
       }
     })
+
+    if (!req.churchId) {
+      return res.status(400).json({ error: 'Igreja não definida para o usuário.' })
+    }
 
     await prisma.notification.create({
       data: {
@@ -24,10 +34,11 @@ export const sendMessage = async (req: Request, res: Response) => {
         target: sender?.name ?? 'Usuário',
         image: 'https://avatar.iran.liara.run/username?username=' + sender?.name,
         type: 1,
-        location: `/mensagens`, // ou algum path útil do sistema
+        location: `/mensagens`,
         locationLabel: 'Mensagens',
         status: 'info',
-        read: false
+        read: false,
+        churchId: req.churchId, // ✅ adicionado
       }
     })
 

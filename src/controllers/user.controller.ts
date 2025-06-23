@@ -5,7 +5,75 @@ import { updateUserSchema } from '../validations/auth.validation'
 import { Role } from '../@types/roles'
 import { sendNotification } from '../utils/sendNotification'
 import { supabase } from '../services/supabaseClient.service'
+import crypto from 'crypto';
+import { sendEmail } from '../services/email.service';
 
+
+export const createUserByAdmin = async (req: Request, res: Response) => {
+  try {
+    const { name, email, role } = req.body;
+    const churchId = req.user?.churchId;
+
+    console.log(req.user)
+
+    if (!churchId) {
+      return res.status(403).json({ error: 'Admin sem igreja vinculada' });
+    }
+
+    const existing = await prisma.user.findUnique({ where: { email } });
+    if (existing) {
+      return res.status(400).json({ error: 'E-mail já está em uso' });
+    }
+
+    const avatarUrl = `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(name)}&fontFamily=Helvetica&fontSize=36`
+
+    const hashedPassword = await bcrypt.hash('temp1234', 10); // senha temporária
+
+    const user = await prisma.user.create({
+      data: {
+        name,
+        email,
+        role,
+        churchId,
+        avatar: avatarUrl,
+        passwordHash: hashedPassword,
+        firstLogin: true, // campo boolean no model User (se ainda não tiver, podemos adicionar)
+      },
+    });
+
+    // TODO: enviar e-mail com instruções, se desejar
+
+    const token = crypto.randomBytes(32).toString('hex');
+    const expiry = new Date(Date.now() + 1000 * 60 * 60); // 1h de validade
+
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        resetToken: token,
+        resetTokenExpiry: expiry,
+      },
+    });
+
+    // Crie aqui a URL de definição de senha — ajuste para o seu frontend
+    const url = `https://app.igrejaiec.com.br/define-password/${token}`;
+
+    await sendEmail({
+      to: email,
+      subject: 'Defina sua senha no sistema da igreja',
+      html: `
+        <p>Olá, ${name}!</p>
+        <p>Você foi cadastrado no sistema da igreja. Para definir sua senha, clique no link abaixo:</p>
+        <p><a href="${url}">Definir minha senha</a></p>
+        <p>Este link expira em 1 hora.</p>
+      `,
+    });
+
+    res.status(201).json({ message: 'Usuário criado com sucesso', userId: user.id });
+  } catch (error) {
+    console.error('[createUserByAdmin]', error);
+    res.status(500).json({ error: 'Erro ao criar usuário' });
+  }
+};
 
 export const updateUser = async (req: Request, res: Response) => {
   const { id } = req.params
@@ -61,6 +129,7 @@ export const deleteUser = async (req: Request, res: Response) => {
     return res.status(500).json({ error: 'Erro interno no servidor' })
   }
 }
+
 export const listUsers = async (req: Request, res: Response) => {
   try {
     const { page = '1', limit = '10', search = '' } = req.query
@@ -132,7 +201,8 @@ export const updateUserRole = async (req: Request, res: Response) => {
       target: user.name,
       image: 'https://avatar.iran.liara.run/username?username=' + user.name,
       type: 2,
-      status: 'succeed'
+      status: 'succeed',
+      churchId: req.churchId!
     })
 
     return res.json({ message: 'Papel atualizado com sucesso.', user })

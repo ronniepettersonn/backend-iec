@@ -1,19 +1,24 @@
 import { Request, Response } from 'express'
 import { prisma } from '../prisma/client'
 
-export const ensureDailyCashOpen = async (userId: string) => {
+export const ensureDailyCashOpen = async (userId: string, churchId: string) => {
   const today = new Date()
   today.setHours(0, 0, 0, 0)
 
-  // Verifica se o caixa de hoje já está aberto
-  const existingCash = await prisma.dailyCash.findUnique({
-    where: { date: today },
+  // Verifica se o caixa de hoje já está aberto para essa igreja
+  const existingCash = await prisma.dailyCash.findFirst({
+    where: {
+      date: today,
+      churchId,
+    },
   })
 
   if (existingCash) return existingCash
 
-  // Calcula o saldo total do sistema (entradas - saídas)
-  const allTransactions = await prisma.transaction.findMany()
+  // Busca todas as transações da igreja
+  const allTransactions = await prisma.transaction.findMany({
+    where: { churchId },
+  })
 
   const totalIncome = allTransactions
     .filter(tx => tx.type === 'INCOME')
@@ -30,7 +35,8 @@ export const ensureDailyCashOpen = async (userId: string) => {
     data: {
       date: today,
       openingAmount,
-      createdById: userId
+      createdById: userId,
+      churchId,
     },
   })
 
@@ -41,6 +47,7 @@ export const ensureDailyCashOpen = async (userId: string) => {
       entity: 'DailyCash',
       entityId: newCash.id,
       userId,
+      churchId,
       description: `Abertura automática do caixa com saldo acumulado de R$ ${openingAmount.toFixed(2)}.`,
     },
   })
@@ -49,11 +56,13 @@ export const ensureDailyCashOpen = async (userId: string) => {
 }
 
 
+
 export const closeDailyCash = async (req: Request, res: Response) => {
   try {
     const userId = req.userId
-    if (!userId) {
-      return res.status(401).json({ error: 'Usuário não autenticado' })
+    const churchId = req.churchId
+    if (!userId || !churchId) {
+      return res.status(401).json({ error: 'Usuário não autenticado ou sem igreja vinculada' })
     }
 
     const { date, closingAmount, notes } = req.body
@@ -65,8 +74,11 @@ export const closeDailyCash = async (req: Request, res: Response) => {
     const closingDate = new Date(date)
     closingDate.setHours(0, 0, 0, 0)
 
-    const dailyCash = await prisma.dailyCash.findUnique({
-      where: { date: closingDate }
+    const dailyCash = await prisma.dailyCash.findFirst({
+      where: {
+        date: closingDate,
+        churchId,
+      }
     })
 
     if (!dailyCash) {
@@ -78,7 +90,7 @@ export const closeDailyCash = async (req: Request, res: Response) => {
     }
 
     const updatedCash = await prisma.dailyCash.update({
-      where: { date: closingDate },
+      where: { id: dailyCash.id },
       data: {
         closingAmount,
         notes
@@ -91,6 +103,7 @@ export const closeDailyCash = async (req: Request, res: Response) => {
         entity: 'DailyCash',
         entityId: updatedCash.id,
         userId,
+        churchId,
         description: `Fechamento manual do caixa do dia ${closingDate.toLocaleDateString('pt-BR')} com valor de R$ ${closingAmount.toFixed(2)}.`,
       }
     })
@@ -101,6 +114,7 @@ export const closeDailyCash = async (req: Request, res: Response) => {
     return res.status(500).json({ error: 'Erro ao fechar o caixa' })
   }
 }
+
 
 // Ver status do caixa do dia
 export const getTodayCash = async (req: Request, res: Response) => {

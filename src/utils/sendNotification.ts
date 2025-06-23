@@ -1,34 +1,33 @@
 import { prisma } from '../prisma/client'
 
-type SendNotificationParams = {
+type SendNotificationInput = {
   userId: string
   content: string
   target?: string
   image?: string
-  type: 0 | 1| 2
+  type: 0 | 1 | 2
   status?: 'succeed' | 'failed'
+  churchId: string // ← obrigatório agora
 }
 
 export const sendNotification = async ({
   userId,
   content,
   target,
-  type,
   image,
-  status
-}: SendNotificationParams) => {
-  try {
-    await prisma.notification.create({
-      data: {
-        userId,
-        content,
-        type,
-        target,
-        image,
-        status
-      }
-    })
-  } catch (error) {
-    console.error('Erro ao enviar notificação:', error)
-  }
+  type,
+  status,
+  churchId
+}: SendNotificationInput) => {
+  return await prisma.notification.create({
+    data: {
+      userId,
+      content,
+      target,
+      image,
+      type,
+      status,
+      churchId
+    }
+  })
 }

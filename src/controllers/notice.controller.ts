@@ -3,23 +3,28 @@ import { prisma } from '../prisma/client'
 import { createNoticeSchema, updateNoticeSchema } from '../validations/notice.validation'
 
 export const createNotice = async (req: Request, res: Response) => {
-    try {
-        const data = createNoticeSchema.parse(req.body)
-        const createdById = req.userId! // vindo do middleware de autenticação
+  try {
+    const data = createNoticeSchema.parse(req.body)
+    const createdById = req.userId! // já vem do middleware de autenticação
+    const churchId = req.churchId
 
-        if (!req.userId) return res.status(400).json({ error: 'ID do usuário é obrigatório' })
-
-        const notice = await prisma.notice.create({
-            data: {
-                ...data,
-                createdById,
-            },
-        })
-
-        return res.status(201).json(notice)
-    } catch (err: any) {
-        return res.status(400).json({ error: err.message })
+    if (!createdById || !churchId) {
+      return res.status(400).json({ error: 'Usuário ou igreja não identificados' })
     }
+
+    const notice = await prisma.notice.create({
+      data: {
+        ...data,
+        createdById,
+        churchId,
+      },
+    })
+
+    return res.status(201).json(notice)
+  } catch (err: any) {
+    console.error(err)
+    return res.status(400).json({ error: err.message || 'Erro ao criar aviso' })
+  }
 }
 
 export const getAllNotices = async (req: Request, res: Response) => {

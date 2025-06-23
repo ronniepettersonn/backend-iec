@@ -15,7 +15,11 @@ const createAccountReceivableSchema = z.object({
 export const createAccountReceivable = async (req: Request, res: Response) => {
   try {
     const userId = req.userId
-    if (!userId) return res.status(401).json({ error: 'Usuário não autenticado' })
+    const churchId = req.user?.churchId
+
+    if (!userId || !churchId) {
+      return res.status(401).json({ error: 'Usuário não autenticado ou sem igreja vinculada' })
+    }
 
     const validated = createAccountReceivableSchema.parse(req.body)
 
@@ -32,6 +36,11 @@ export const createAccountReceivable = async (req: Request, res: Response) => {
       if (category.type !== 'INCOME') {
         return res.status(400).json({ error: 'Categoria deve ser do tipo "Entrada"' })
       }
+
+      // ⚠️ Confere se a categoria pertence à igreja
+      if (category.churchId !== churchId) {
+        return res.status(403).json({ error: 'Categoria não pertence à sua igreja' })
+      }
     }
 
     const data = {
@@ -40,14 +49,15 @@ export const createAccountReceivable = async (req: Request, res: Response) => {
       receivedAt: validated.received ? new Date() : undefined,
       received: validated.received ?? false,
       createdById: userId,
-      memberId: validated.memberId || null
+      memberId: validated.memberId || null,
+      churchId,
     }
 
     const account = await prisma.accountReceivable.create({ data })
 
     // 💰 Se já recebido, cria a transação
     if (account.received) {
-      await ensureDailyCashOpen(userId)
+      await ensureDailyCashOpen(userId, churchId)
       await prisma.transaction.create({
         data: {
           amount: account.amount,
@@ -55,7 +65,8 @@ export const createAccountReceivable = async (req: Request, res: Response) => {
           type: 'INCOME',
           description: account.description,
           categoryId: account.categoryId,
-          createdById: userId
+          createdById: userId,
+          churchId,
         }
       })
     }
@@ -70,37 +81,57 @@ export const createAccountReceivable = async (req: Request, res: Response) => {
 export const markAsReceived = async (req: Request, res: Response) => {
   try {
     const userId = req.userId
-    if (!userId) return res.status(401).json({ error: 'Usuário não autenticado' })
+    const churchId = req.user?.churchId
+
+    if (!userId || !churchId) {
+      return res.status(401).json({ error: 'Usuário não autenticado ou sem igreja vinculada' })
+    }
 
     const accountId = req.params.id
-    const account = await prisma.accountReceivable.findUnique({ where: { id: accountId } })
 
-    if (!account) return res.status(404).json({ error: 'Conta não encontrada' })
-    if (account.received) return res.status(400).json({ error: 'Conta já recebida' })
+    const account = await prisma.accountReceivable.findUnique({
+      where: { id: accountId }
+    })
 
-    await ensureDailyCashOpen(userId)
+    if (!account) {
+      return res.status(404).json({ error: 'Conta não encontrada' })
+    }
+
+    if (account.churchId !== churchId) {
+      return res.status(403).json({ error: 'Conta não pertence à sua igreja' })
+    }
+
+    if (account.received) {
+      return res.status(400).json({ error: 'Conta já recebida' })
+    }
+
+    await ensureDailyCashOpen(userId, churchId)
+
+    const now = new Date()
 
     const updated = await prisma.accountReceivable.update({
       where: { id: accountId },
       data: {
         received: true,
-        receivedAt: new Date()
+        receivedAt: now
       }
     })
 
     await prisma.transaction.create({
       data: {
         amount: updated.amount,
-        date: new Date(),
+        date: now,
         type: 'INCOME',
         description: updated.description,
         categoryId: updated.categoryId ?? undefined,
-        createdById: userId
+        createdById: userId,
+        churchId,
       }
     })
 
     return res.status(200).json(updated)
   } catch (error: any) {
+    console.error(error)
     return res.status(400).json({ error: error.message })
   }
 }
@@ -180,11 +211,25 @@ export const listAccountsReceivable = async (req: Request, res: Response) => {
 export const deleteAccountReceivable = async (req: Request, res: Response) => {
   try {
     const userId = req.userId
-    if (!userId) return res.status(401).json({ error: 'Usuário não autenticado' })
+    const churchId = req.user?.churchId
+
+    if (!userId || !churchId) {
+      return res.status(401).json({ error: 'Usuário não autenticado ou sem igreja vinculada' })
+    }
 
     const accountId = req.params.id
-    const account = await prisma.accountReceivable.findUnique({ where: { id: accountId } })
-    if (!account) return res.status(404).json({ error: 'Conta não encontrada' })
+
+    const account = await prisma.accountReceivable.findUnique({
+      where: { id: accountId }
+    })
+
+    if (!account) {
+      return res.status(404).json({ error: 'Conta não encontrada' })
+    }
+
+    if (account.churchId !== churchId) {
+      return res.status(403).json({ error: 'Conta não pertence à sua igreja' })
+    }
 
     await prisma.accountReceivable.delete({ where: { id: accountId } })
 
@@ -194,12 +239,14 @@ export const deleteAccountReceivable = async (req: Request, res: Response) => {
         entity: 'AccountReceivable',
         entityId: accountId,
         userId,
+        churchId,
         description: `Conta a receber de R$ ${account.amount} excluída`
       }
     })
 
     return res.status(204).send()
   } catch (error: any) {
+    console.error(error)
     return res.status(500).json({ error: error.message })
   }
 }

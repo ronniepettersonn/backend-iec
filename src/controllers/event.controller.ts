@@ -7,7 +7,12 @@ export const createEvent = async (req: Request, res: Response) => {
   try {
     const { title, description, date, location } = createEventSchema.parse(req.body)
 
-    const createdById = req.userId as string // middleware de autenticação já define isso
+    const createdById = req.userId as string
+    const churchId = req.churchId
+
+    if (!churchId) {
+      return res.status(403).json({ error: 'Igreja não identificada para este usuário' })
+    }
 
     const event = await prisma.event.create({
       data: {
@@ -16,6 +21,7 @@ export const createEvent = async (req: Request, res: Response) => {
         date: new Date(date),
         location,
         createdById,
+        churchId,
       },
     })
 

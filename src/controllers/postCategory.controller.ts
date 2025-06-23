@@ -6,12 +6,18 @@ import { prisma } from '../prisma/client'
 export const createPostCategory = async (req: Request, res: Response) => {
   try {
     const { name, slug, description } = req.body
+    const churchId = req.churchId
+
+    if (!churchId) {
+      return res.status(401).json({ error: 'Igreja não identificada' })
+    }
 
     const category = await prisma.postCategory.create({
       data: {
         name,
         slug,
         description,
+        churchId
       }
     })
 
@@ -21,7 +27,6 @@ export const createPostCategory = async (req: Request, res: Response) => {
     return res.status(500).json({ error: 'Erro ao criar categoria de post' })
   }
 }
-
 export const listPostCategories = async (_req: Request, res: Response) => {
   try {
     const categories = await prisma.postCategory.findMany({

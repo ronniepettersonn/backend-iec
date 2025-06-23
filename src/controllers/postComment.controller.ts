@@ -4,6 +4,11 @@ import { prisma } from '../prisma/client'
 export const createPostComment = async (req: Request, res: Response) => {
   try {
     const { postId, content, userId, author, email } = req.body
+    const churchId = req.churchId
+
+    if (!churchId) {
+      return res.status(401).json({ error: 'Igreja não identificada' })
+    }
 
     if (!postId || !content) {
       return res.status(400).json({ error: 'postId e content são obrigatórios' })
@@ -16,6 +21,7 @@ export const createPostComment = async (req: Request, res: Response) => {
         userId: userId || undefined,
         author: author || undefined,
         email: email || undefined,
+        churchId
       },
     })
 

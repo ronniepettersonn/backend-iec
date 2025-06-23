@@ -84,8 +84,8 @@ export const listAccountsPayable = async (req: Request, res: Response) => {
 
 export const createAccountPayable = async (req: Request, res: Response) => {
   try {
-    if (!req.userId) {
-      return res.status(401).json({ error: 'Usuário não autenticado' })
+    if (!req.userId || !req.user?.churchId) {
+      return res.status(401).json({ error: 'Usuário não autenticado ou sem igreja vinculada' })
     }
 
     const validatedData = createAccountPayableSchema.parse(req.body)
@@ -110,6 +110,7 @@ export const createAccountPayable = async (req: Request, res: Response) => {
         ...validatedData,
         dueDate: new Date(validatedData.dueDate),
         createdById: req.userId,
+        churchId: req.user.churchId, // 🔄 novo campo obrigatório
       },
     })
 
@@ -131,9 +132,10 @@ export const markAccountAsPaid = async (req: Request, res: Response) => {
   try {
     const accountId = req.params.id
     const userId = req.userId
+    const churchId = req.user?.churchId
 
-    if (!userId) {
-      return res.status(401).json({ error: 'Usuário não autenticado' })
+    if (!userId || !churchId) {
+      return res.status(401).json({ error: 'Usuário não autenticado ou sem igreja vinculada' })
     }
 
     const account = await prisma.accountPayable.findUnique({
@@ -145,24 +147,28 @@ export const markAccountAsPaid = async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'Conta não encontrada' })
     }
 
+    // Verifica se a conta pertence à mesma igreja do usuário
+    if (account.churchId !== churchId) {
+      return res.status(403).json({ error: 'Acesso negado a esta conta' })
+    }
+
     if (account.paid) {
       return res.status(400).json({ error: 'Conta já está marcada como paga' })
     }
 
-    // 📅 Garante que há caixa aberto hoje (automaticamente)
     const today = new Date()
     today.setHours(0, 0, 0, 0)
-    const dailyCash = await ensureDailyCashOpen(userId)
 
+    const dailyCash = await ensureDailyCashOpen(userId, churchId)
     if (!dailyCash) {
       return res.status(400).json({
         error: 'Caixa do dia não está disponível. Tente novamente mais tarde ou contate o administrador.',
       })
     }
 
-    // 💰 Busca todas as transações do caixa do dia (independente do usuário)
     const transactions = await prisma.transaction.findMany({
       where: {
+        churchId,
         date: {
           gte: dailyCash.date,
           lt: new Date(dailyCash.date.getTime() + 24 * 60 * 60 * 1000),
@@ -202,6 +208,7 @@ export const markAccountAsPaid = async (req: Request, res: Response) => {
         description: `Pagamento de conta: ${account.description}`,
         categoryId: account.categoryId ?? undefined,
         createdById: userId,
+        churchId,
       },
     })
 
@@ -213,6 +220,7 @@ export const markAccountAsPaid = async (req: Request, res: Response) => {
         entityId: accountId,
         userId,
         description: `Conta ${account.description} marcada como paga.`,
+        churchId,
       },
     })
 
@@ -228,7 +236,6 @@ export const markAccountAsPaid = async (req: Request, res: Response) => {
         where: { id: account.recurrenceId }
       })
 
-      const now = new Date()
       const isExpired = recurrence?.endDate && recurrence.endDate < now
 
       const newStatus = unpaidCount === 0
@@ -277,14 +284,21 @@ export const deleteAccountPayable = async (req: Request, res: Response) => {
   const { id } = req.params
 
   try {
-    if (!req.userId) {
-      return res.status(401).json({ error: 'Usuário não autenticado' })
+    if (!req.userId || !req.user?.churchId) {
+      return res.status(401).json({ error: 'Usuário não autenticado ou sem igreja vinculada' })
     }
+
+    const churchId = req.user.churchId
 
     const existing = await prisma.accountPayable.findUnique({ where: { id } })
 
     if (!existing) {
       return res.status(404).json({ error: 'Conta a pagar não encontrada' })
+    }
+
+    // Verifica se pertence à mesma igreja
+    if (existing.churchId !== churchId) {
+      return res.status(403).json({ error: 'Você não tem permissão para excluir esta conta' })
     }
 
     await prisma.accountPayable.delete({ where: { id } })
@@ -296,6 +310,7 @@ export const deleteAccountPayable = async (req: Request, res: Response) => {
         entityId: id,
         userId: req.userId,
         description: `Conta a pagar '${existing.description}' excluída`,
+        churchId,
       }
     })
 
@@ -334,3 +349,106 @@ export const uploadAccountPayableAttachment = async (req: Request, res: Response
     return res.status(500).json({ error: 'Erro ao anexar comprovante' })
   }
 }
+
+export const getAccountsPayableSummary = async (req: Request, res: Response) => {
+  try {
+    const now = new Date();
+    const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const currentMonthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+    const nextMonthEnd = new Date(now.getFullYear(), now.getMonth() + 2, 1);
+
+    const currentMonthAccounts = await prisma.accountPayable.findMany({
+      where: {
+        dueDate: { gte: currentMonthStart, lt: currentMonthEnd },
+      },
+    });
+
+    const nextMonthAccounts = await prisma.accountPayable.findMany({
+      where: {
+        dueDate: { gte: currentMonthEnd, lt: nextMonthEnd },
+      },
+    });
+
+    const totalDoMes = currentMonthAccounts.reduce((sum, acc) => sum + acc.amount, 0);
+    const totalPago = currentMonthAccounts.filter(acc => acc.paid).reduce((sum, acc) => sum + acc.amount, 0);
+    const totalEmAberto = totalDoMes - totalPago;
+    const totalDoProximoMes = nextMonthAccounts.reduce((sum, acc) => sum + acc.amount, 0);
+
+    res.json({
+      totalDoMes,
+      totalPago,
+      totalEmAberto,
+      totalDoProximoMes,
+    });
+  } catch (error) {
+    console.error('[getAccountsPayableSummary]', error);
+    res.status(500).json({ error: 'Erro ao carregar resumo de contas a pagar' });
+  }
+};
+
+export const getUpcomingAccountsPayable = async (req: Request, res: Response) => {
+  try {
+    const churchId = req.user?.churchId
+    if (!churchId) {
+      return res.status(403).json({ error: 'Usuário sem igreja vinculada' })
+    }
+
+    const days = parseInt(req.query.days as string) || 7
+
+    const today = new Date()
+    const futureDate = new Date()
+    futureDate.setDate(today.getDate() + days)
+
+    const accounts = await prisma.accountPayable.findMany({
+      where: {
+        churchId,
+        dueDate: {
+          gte: today,
+          lte: futureDate,
+        },
+        paid: false,
+      },
+      orderBy: { dueDate: 'asc' },
+    })
+
+    res.json(accounts)
+  } catch (error) {
+    console.error('[getUpcomingAccountsPayable]', error)
+    res.status(500).json({ error: 'Erro ao buscar próximos vencimentos' })
+  }
+}
+
+export const getAccountsPayableAlerts = async (_req: Request, res: Response) => {
+  try {
+    const today = new Date();
+    const in3Days = new Date(today);
+    in3Days.setDate(today.getDate() + 3);
+
+    const vencidas = await prisma.accountPayable.findMany({
+      where: {
+        paid: false,
+        dueDate: {
+          lt: today,
+        },
+      },
+    });
+
+    const vencendo = await prisma.accountPayable.findMany({
+      where: {
+        paid: false,
+        dueDate: {
+          gte: today,
+          lte: in3Days,
+        },
+      },
+    });
+
+    res.json({
+      vencidas,
+      vencendo,
+    });
+  } catch (error) {
+    console.error('[getAccountsPayableAlerts]', error);
+    res.status(500).json({ error: 'Erro ao carregar alertas de contas a pagar' });
+  }
+};

@@ -31,6 +31,9 @@ import { startRecurrenceStatusJob } from './jobs/recurrenceStatus.job'
 import memberRoleRoutes from './routes/memberRole.routes'
 import postRoutes from './routes/post.routes'
 import postCategoryRoutes from './routes/postCategory.routes'
+import churchModuleRoutes from './routes/churchModule.routes'
+import churchRoutes from './routes/church.routes'
+import activeModuleRoutes from './routes/activeModule.routes'
 
 dotenv.config()
 
@@ -66,6 +69,9 @@ app.use('/accounts-payable', accountPayable)
 app.use('/accounts-receivable', accountReceivable)
 app.use('/posts', postRoutes)
 app.use('/post-categories', postCategoryRoutes)
+app.use('/modules', churchModuleRoutes);
+app.use('/churches', churchRoutes);
+app.use('/churches/modules', activeModuleRoutes);
 
 app.use('/upload', uploadRoutes)
 

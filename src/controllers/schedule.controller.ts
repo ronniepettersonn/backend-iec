@@ -5,12 +5,18 @@ import { createScheduleSchema } from '../validations/schedule.validation'
 export const createSchedule = async (req: Request, res: Response) => {
   try {
     const { date, ministryId, memberIds, location } = createScheduleSchema.parse(req.body)
+    const churchId = req.churchId
+
+    if (!churchId) {
+      return res.status(401).json({ error: 'Igreja não autenticada' })
+    }
 
     const schedule = await prisma.schedule.create({
       data: {
         date,
         ministryId,
         location,
+        churchId,
         members: {
           connect: memberIds.map(id => ({ id })),
         },
@@ -27,6 +33,7 @@ export const createSchedule = async (req: Request, res: Response) => {
     return res.status(400).json({ error: err.message || 'Erro ao criar escala' })
   }
 }
+
 
 export const listSchedules = async (req: Request, res: Response) => {
   try {

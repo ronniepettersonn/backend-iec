@@ -5,11 +5,16 @@ import { ZodError } from 'zod'
 
 export const createVisitor = async (req: Request, res: Response) => {
   try {
+    if (!req.churchId) {
+      return res.status(400).json({ error: 'ID da igreja não informado' })
+    }
+
     const validated = createVisitorSchema.parse(req.body)
 
     const visitor = await prisma.visitor.create({
       data: {
         ...validated,
+        churchId: req.churchId,
         visitDate: validated.visitDate ? new Date(validated.visitDate) : new Date(),
       },
     })

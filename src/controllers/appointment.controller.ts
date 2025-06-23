@@ -3,30 +3,38 @@ import { prisma } from '../prisma/client'
 import { confirmAttendanceSchema, createAppointmentSchema, rescheduleAppointmentSchema } from '../validations/appointment.validation'
 
 export const createAppointment = async (req: Request, res: Response) => {
-    try {
-        const { title, description, date, location, attendeesIds } = createAppointmentSchema.parse(req.body)
+  try {
+    const userId = req.userId
+    const churchId = req.user?.churchId
 
-        const appointment = await prisma.appointment.create({
-            data: {
-                title,
-                description,
-                date,
-                location,
-                createdById: req.userId!, // já vem do middleware
-                attendees: attendeesIds ? {
-                    connect: attendeesIds.map(id => ({ id })),
-                } : undefined,
-            },
-            include: {
-                attendees: true,
-            },
-        })
-
-        return res.status(201).json(appointment)
-    } catch (error) {
-        console.error(error)
-        return res.status(400).json({ error: 'Erro ao criar compromisso' })
+    if (!userId || !churchId) {
+      return res.status(401).json({ error: 'Usuário não autenticado ou sem igreja vinculada' })
     }
+
+    const { title, description, date, location, attendeesIds } = createAppointmentSchema.parse(req.body)
+
+    const appointment = await prisma.appointment.create({
+      data: {
+        title,
+        description,
+        date,
+        location,
+        createdById: userId,
+        churchId,
+        attendees: attendeesIds ? {
+          connect: attendeesIds.map(id => ({ id })),
+        } : undefined,
+      },
+      include: {
+        attendees: true,
+      },
+    })
+
+    return res.status(201).json(appointment)
+  } catch (error) {
+    console.error(error)
+    return res.status(400).json({ error: 'Erro ao criar compromisso' })
+  }
 }
 
 export const listAppointments = async (req: Request, res: Response) => {

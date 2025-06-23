@@ -14,13 +14,14 @@ const createPostSchema = z.object({
 
 export const createPost = async (req: Request, res: Response) => {
   const userId = req.userId!
-  try {
-    const validated = createPostSchema.parse(req.body)
+  const churchId = req.churchId
 
-    if (!userId) {
-      return res.status(401).json({ error: 'Usuário não autenticado' })
+  try {
+    if (!userId || !churchId) {
+      return res.status(401).json({ error: 'Usuário não autenticado ou igreja não identificada' })
     }
 
+    const validated = createPostSchema.parse(req.body)
     const { tags = [], ...postData } = validated
 
     // Garante que os nomes das tags sejam únicos
@@ -28,7 +29,10 @@ export const createPost = async (req: Request, res: Response) => {
 
     // Verifica quais já existem
     const existingTags = await prisma.postTag.findMany({
-      where: { name: { in: uniqueTags } }
+      where: {
+        name: { in: uniqueTags },
+        churchId
+      }
     })
 
     const existingNames = existingTags.map(t => t.name)
@@ -37,7 +41,7 @@ export const createPost = async (req: Request, res: Response) => {
     // Cria novas tags que ainda não existem
     const newTags = await Promise.all(
       newTagNames.map(name =>
-        prisma.postTag.create({ data: { name } })
+        prisma.postTag.create({ data: { name, churchId } })
       )
     )
 
@@ -48,6 +52,7 @@ export const createPost = async (req: Request, res: Response) => {
       data: {
         ...postData,
         authorId: userId,
+        churchId,
         PostTagsOnPosts: {
           create: allTags.map(tag => ({
             tag: {
@@ -58,9 +63,7 @@ export const createPost = async (req: Request, res: Response) => {
       },
       include: {
         PostTagsOnPosts: {
-          include: {
-            tag: true
-          }
+          include: { tag: true }
         }
       }
     })
@@ -71,6 +74,7 @@ export const createPost = async (req: Request, res: Response) => {
     return res.status(400).json({ error: error.message })
   }
 }
+
 
 export const listPosts = async (_req: Request, res: Response) => {
   try {

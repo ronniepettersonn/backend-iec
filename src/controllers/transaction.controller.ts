@@ -6,18 +6,19 @@ import { Category, TransactionType } from '@prisma/client'
 
 export const createTransaction = async (req: Request, res: Response) => {
   try {
-    if (!req.userId) {
-      return res.status(401).json({ error: 'Usuário não autenticado' })
+    if (!req.userId || !req.churchId) {
+      return res.status(401).json({ error: 'Usuário ou igreja não autenticados' })
     }
 
     const userId = req.userId
+    const churchId = req.churchId
     const validatedData = createTransactionSchema.parse(req.body)
 
     // Garante que o caixa de hoje está aberto
     const today = new Date()
     today.setHours(0, 0, 0, 0)
 
-    const dailyCash = await ensureDailyCashOpen(userId)
+    const dailyCash = await ensureDailyCashOpen(userId, churchId)
 
     if (!dailyCash) {
       return res.status(400).json({
@@ -39,6 +40,7 @@ export const createTransaction = async (req: Request, res: Response) => {
     if (validatedData.type === 'EXPENSE') {
       const transactions = await prisma.transaction.findMany({
         where: {
+          churchId,
           date: {
             gte: dailyCash.date,
             lt: new Date(dailyCash.date.getTime() + 24 * 60 * 60 * 1000),
@@ -60,16 +62,17 @@ export const createTransaction = async (req: Request, res: Response) => {
         ...validatedData,
         date: new Date(validatedData.date),
         createdById: userId,
+        churchId,
       },
     })
 
-    // Log opcional
     await prisma.logEntry.create({
       data: {
         action: 'CREATE',
         entity: 'Transaction',
         entityId: newTransaction.id,
         userId,
+        churchId,
         description: `Transação de ${validatedData.type} no valor de R$ ${validatedData.amount}`,
       },
     })
@@ -80,6 +83,7 @@ export const createTransaction = async (req: Request, res: Response) => {
     return res.status(400).json({ error: error.message || 'Erro ao criar transação' })
   }
 }
+
 
 export const listTransactions = async (req: Request, res: Response) => {
   try {

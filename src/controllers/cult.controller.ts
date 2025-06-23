@@ -24,6 +24,11 @@ export const createCult = async (req: Request, res: Response) => {
     directorId
   } = req.body
 
+  const churchId = req.churchId
+  if (!churchId) {
+    return res.status(403).json({ error: 'Igreja não identificada para este usuário' })
+  }
+
   try {
     const createdCult = await prisma.cult.create({
       data: {
@@ -44,17 +49,14 @@ export const createCult = async (req: Request, res: Response) => {
         offeringsCount,
         designatedOfferings,
         notes,
+        churchId
       }
     })
 
     if (preacherId && directorId) {
-  const existingSchedule = await prisma.cultSchedule.findFirst({
-    where: { cultId: createdCult.id }
-  })
-
-  
-
-    if (preacherId && directorId) {
+      const existingSchedule = await prisma.cultSchedule.findFirst({
+        where: { cultId: createdCult.id }
+      })
 
       if (!existingSchedule) {
         await prisma.cultSchedule.create({
@@ -62,13 +64,13 @@ export const createCult = async (req: Request, res: Response) => {
             cultId: createdCult.id,
             preacherId,
             directorId,
-            notes: `Escala criada automaticamente junto ao culto`
+            notes: `Escala criada automaticamente junto ao culto`,
+            churchId
           }
         })
       } else {
         console.warn('Culto já possui uma escala, não foi criada uma nova.')
       }
-    }
 
       // Enviar notificações
       const [preacherUser, directorUser] = await Promise.all([
@@ -89,7 +91,8 @@ export const createCult = async (req: Request, res: Response) => {
             location: `/cultos`,
             locationLabel: 'Cultos',
             status: 'info',
-            read: false
+            read: false,
+            churchId
           },
           {
             userId: directorId,
@@ -100,7 +103,8 @@ export const createCult = async (req: Request, res: Response) => {
             location: `/cultos`,
             locationLabel: 'Cultos',
             status: 'info',
-            read: false
+            read: false,
+            churchId
           }
         ]
       })
@@ -258,7 +262,6 @@ export const getPastCults = async (req: Request, res: Response) => {
   }
 }
 
-
 export const deleteCult = async (req: Request, res: Response) => {
   const { id } = req.params
 
@@ -297,8 +300,6 @@ export const deleteCult = async (req: Request, res: Response) => {
   }
 }
 
-
-
 export const updateCultType = async (req: Request, res: Response) => {
   const { id } = req.params
   const { name } = req.body
@@ -326,11 +327,17 @@ export const updateCultType = async (req: Request, res: Response) => {
 
 export const createCultType = async (req: Request, res: Response) => {
   const { name } = req.body
+  const churchId = req.churchId
+
+  if (!churchId) {
+    return res.status(403).json({ error: 'Igreja não identificada para este usuário' })
+  }
 
   try {
     const cultType = await prisma.cultType.create({
       data: {
         name,
+        churchId
       },
     })
 

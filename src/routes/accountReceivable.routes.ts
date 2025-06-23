@@ -6,10 +6,14 @@ import {
   markAsReceived
 } from '../controllers/accountReceivable.controller'
 import { isAuthenticated } from '../middlewares/isAuthenticated'
+import { hasRole } from '../middlewares/hasRole'
+import { checkModuleAccess } from '../middlewares/checkModuleAccess'
 
 const router = Router()
 
 router.use(isAuthenticated)
+router.use(hasRole('ADMIN', 'FINANCE'))
+router.use(checkModuleAccess('finance'))
 
 router.post('/', createAccountReceivable)
 router.get('/', listAccountsReceivable)

@@ -6,8 +6,16 @@ export const createCategory = async (req: Request, res: Response) => {
   try {
     const validated = createCategorySchema.parse(req.body)
 
+    const churchId = req.churchId
+    if (!churchId) {
+      return res.status(403).json({ error: 'Igreja não identificada para este usuário' })
+    }
+
     const category = await prisma.category.create({
-      data: validated
+      data: {
+        ...validated,
+        churchId
+      }
     })
 
     return res.status(201).json(category)

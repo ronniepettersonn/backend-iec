@@ -50,7 +50,8 @@ export const sendEmail = async (req: Request, res: Response) => {
               content: `Enviou um email para você.`,
               target: user?.name,
               image: 'https://avatar.iran.liara.run/username?username=' + user?.name,
-              type: 0
+              type: 0,
+              churchId: req.churchId!
             })
     })
     
@@ -61,7 +62,6 @@ export const sendEmail = async (req: Request, res: Response) => {
     return res.status(500).json({ error: 'Erro ao enviar e-mail.' })
   }
 }
-
 
 export const updateEmailGroup = async (req: Request, res: Response) => {
   const { id } = req.params

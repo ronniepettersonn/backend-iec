@@ -6,13 +6,16 @@ export const createMinistry = async (req: Request, res: Response) => {
   try {
     const { name, description, leaderId, memberIds } = createMinistrySchema.parse(req.body)
 
+    if (!req.churchId) {
+      return res.status(400).json({ error: 'Igreja não identificada para criação de ministério.' })
+    }
+
     const ministry = await prisma.ministry.create({
       data: {
         name,
         description,
-        leader: {
-          connect: { id: leaderId },
-        },
+        churchId: req.churchId,
+        leaderId,
         members: memberIds
           ? {
               connect: memberIds.map(id => ({ id })),
@@ -20,8 +23,8 @@ export const createMinistry = async (req: Request, res: Response) => {
           : undefined,
       },
       include: {
-        leader: true,
         members: true,
+        leader: true,
       },
     })
 
@@ -45,6 +48,9 @@ export const getAllMinistries = async (req: Request, res: Response) => {
         include: {
           leader: true,
           members: true,
+        },
+        where: {
+          active: true
         },
         orderBy: {
           name: 'asc',
