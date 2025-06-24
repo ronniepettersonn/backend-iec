@@ -2,7 +2,8 @@ import { Router } from 'express'
 import {
   createPost,
   getPostBySlug,
-  listPosts
+  listPosts,
+  listPublicHighlights
 } from '../controllers/post.controller'
 
 import { createPostTag, listPostTags } from '../controllers/postTag.controller'
@@ -13,6 +14,7 @@ const router = Router()
 
 router.post('/', isAuthenticated,createPost)
 router.get('/', listPosts)
+router.get('/highlights', listPublicHighlights)
 router.get('/:slug', getPostBySlug)
 
 router.post('/tags',isAuthenticated, createPostTag)

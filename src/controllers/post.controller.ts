@@ -75,10 +75,10 @@ export const createPost = async (req: Request, res: Response) => {
   }
 }
 
-
 export const listPosts = async (_req: Request, res: Response) => {
   try {
     const posts = await prisma.post.findMany({
+      where: {published: true},
       orderBy: { createdAt: 'desc' },
       include: {
         category: true,
@@ -122,5 +122,54 @@ export const getPostBySlug = async (req: Request, res: Response) => {
   } catch (error) {
     console.error('[getPostBySlug]', error)
     return res.status(500).json({ error: 'Erro ao buscar post' })
+  }
+}
+
+export const listPublicHighlights = async (_req: Request, res: Response) => {
+  try {
+    // Primeiro, busca os destacados
+    const highlightedPosts = await prisma.post.findMany({
+      where: { highlighted: true, published: true },
+      orderBy: { createdAt: 'desc' },
+      take: 3,
+      include: {
+        author: { select: { name: true, avatar: true } },
+        PostTagsOnPosts: {
+          include: { tag: true }
+        },
+        category: true
+      }
+    })
+
+    // Se já tem 3 ou mais, retorna só eles
+    if (highlightedPosts.length >= 3) {
+      return res.json(highlightedPosts)
+    }
+
+    // Se tiver menos de 3, completa com os mais recentes que não estão destacados
+    const remaining = 3 - highlightedPosts.length
+
+    const recentPosts = await prisma.post.findMany({
+      where: {
+        highlighted: false,
+         published: true
+      },
+      orderBy: { createdAt: 'desc' },
+      take: remaining,
+      include: {
+        author: { select: { name: true, avatar: true } },
+        PostTagsOnPosts: {
+          include: { tag: true }
+        },
+        category: true
+      }
+    })
+
+    const finalPosts = [...highlightedPosts, ...recentPosts]
+
+    return res.json(finalPosts)
+  } catch (error) {
+    console.error('[listPublicHighlights]', error)
+    return res.status(500).json({ error: 'Erro ao listar posts para home pública' })
   }
 }

@@ -585,6 +585,8 @@ model Post {
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
+  highlighted Boolean @default(false)
+
   categoryId String?
   category   PostCategory? @relation(fields: [categoryId], references: [id])
 
