@@ -7,6 +7,7 @@ import { sendNotification } from '../utils/sendNotification'
 import { supabase } from '../services/supabaseClient.service'
 import crypto from 'crypto';
 import { sendEmail } from '../services/email.service';
+import { sendTemplatedEmail } from '../services/sendTemplateEmail.service'
 
 
 export const createUserByAdmin = async (req: Request, res: Response) => {
@@ -57,15 +58,23 @@ export const createUserByAdmin = async (req: Request, res: Response) => {
     // Crie aqui a URL de definição de senha — ajuste para o seu frontend
     const url = `https://app.igrejaiec.com.br/define-password/${token}`;
 
-    await sendEmail({
+    await sendTemplatedEmail({
       to: email,
       subject: 'Defina sua senha no sistema da igreja',
-      html: `
+      templateName: 'define-password',
+      variables: {
+        logoUrl: 'https://www.igrejaiec.com.br/_next/image?url=%2F_next%2Fstatic%2Fmedia%2Flogo.481d02bd.png&w=750&q=75',
+        title: 'Defina sua senha',
+        message: `Olá ${name}, você foi cadastrado(a) no Siec - Sistema da Igreja do Evangelho de Cristo. Para definir sua senha, clique no link abaixo:`,
+        buttonUrl: url,
+        buttonText: 'Definir minha senha'
+      },
+     /*  html: `
         <p>Olá, ${name}!</p>
         <p>Você foi cadastrado no sistema da igreja. Para definir sua senha, clique no link abaixo:</p>
         <p><a href="${url}">Definir minha senha</a></p>
         <p>Este link expira em 1 hora.</p>
-      `,
+      `, */
     });
 
     res.status(201).json({ message: 'Usuário criado com sucesso', userId: user.id });
@@ -175,7 +184,7 @@ export const listUsers = async (req: Request, res: Response) => {
       }
     })
 
-    return res.json({ users, totalCount, page: pageNumber, limit: pageSize })
+    return res.json({ users, totalCount, page: pageNumber, perPage: pageSize })
   } catch (error) {
     return res.status(500).json({ error: 'Erro interno no servidor' })
   }

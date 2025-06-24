@@ -75,29 +75,51 @@ export const createPost = async (req: Request, res: Response) => {
   }
 }
 
-export const listPosts = async (_req: Request, res: Response) => {
+export const listPosts = async (req: Request, res: Response) => {
   try {
-    const posts = await prisma.post.findMany({
-      where: {published: true},
-      orderBy: { createdAt: 'desc' },
-      include: {
-        category: true,
-        author: {
-          select: {
-            id: true,
-            name: true,
-            avatar: true
-          }
-        },
-        PostTagsOnPosts: {
-          include: {
-            tag: true
+    const { published, page = '1', limit = '10' } = req.query
+
+    const pageNumber = parseInt(page as string, 10)
+    const perPage = parseInt(limit as string, 10)
+    const skip = (pageNumber - 1) * perPage
+
+    const whereClause =
+      published === 'false'
+        ? {} // todos os posts
+        : { published: true } // padrão: só publicados
+
+    const [posts, total] = await Promise.all([
+      prisma.post.findMany({
+        where: whereClause,
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: perPage,
+        include: {
+          category: true,
+          author: {
+            select: {
+              id: true,
+              name: true,
+              avatar: true
+            }
+          },
+          PostTagsOnPosts: {
+            include: {
+              tag: true
+            }
           }
         }
-      }
-    })
+      }),
+      prisma.post.count({ where: whereClause })
+    ])
 
-    return res.json(posts)
+    return res.json({
+      data: posts,
+      total,
+      page: pageNumber,
+      perPage,
+      totalPages: Math.ceil(total / perPage)
+    })
   } catch (error) {
     console.error('[listPosts]', error)
     return res.status(500).json({ error: 'Erro ao listar posts' })
