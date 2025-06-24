@@ -52,13 +52,30 @@ export const listRecurrences = async (req: Request, res: Response) => {
       return res.status(401).json({ error: 'Igreja não autenticada' })
     }
 
-    const recurrences = await prisma.recurrence.findMany({
-      where: { churchId },
-      include: { category: true },
-      orderBy: { startDate: 'desc' }
-    })
+    const { page = '1', limit = '10' } = req.query
 
-    return res.json(recurrences)
+    const pageNumber = parseInt(page as string, 10)
+    const limitNumber = parseInt(limit as string, 10)
+    const skip = (pageNumber - 1) * limitNumber
+
+    const [recurrences, total] = await Promise.all([
+      prisma.recurrence.findMany({
+        where: { churchId },
+        include: { category: true },
+        orderBy: { startDate: 'desc' },
+        skip,
+        take: limitNumber,
+      }),
+      prisma.recurrence.count({ where: { churchId } }),
+    ])
+
+    return res.json({
+      data: recurrences,
+      total,
+      page: pageNumber,
+      limit: limitNumber,
+      totalPages: Math.ceil(total / limitNumber),
+    })
   } catch (error) {
     console.error(error)
     return res.status(500).json({ error: 'Erro ao listar recorrências' })

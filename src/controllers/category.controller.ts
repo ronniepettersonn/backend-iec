@@ -29,23 +29,40 @@ export const createCategory = async (req: Request, res: Response) => {
 }
 
 export const listCategories = async (req: Request, res: Response) => {
-  const { type } = req.query
+  const { type, page = '1', limit = '10' } = req.query
+
+  const pageNumber = parseInt(page as string, 10)
+  const limitNumber = parseInt(limit as string, 10)
+  const skip = (pageNumber - 1) * limitNumber
 
   try {
-    const categories = await prisma.category.findMany({
-      where: type && type !== 'ALL'
+    const whereClause =
+      type && type !== 'ALL'
         ? { type: type as 'INCOME' | 'EXPENSE' }
-        : undefined,
-      orderBy: { name: 'asc' },
-    })
+        : undefined
 
-    return res.json(categories)
+    const [categories, total] = await Promise.all([
+      prisma.category.findMany({
+        where: whereClause,
+        orderBy: { name: 'asc' },
+        skip,
+        take: limitNumber,
+      }),
+      prisma.category.count({ where: whereClause }),
+    ])
+
+    return res.json({
+      data: categories,
+      total,
+      page: pageNumber,
+      limit: limitNumber,
+      totalPages: Math.ceil(total / limitNumber),
+    })
   } catch (error) {
     console.error(error)
     return res.status(500).json({ error: 'Erro ao listar categorias' })
   }
 }
-
 export const updateCategory = async (req: Request, res: Response) => {
   const { id } = req.params
   const { name, description, type } = req.body
