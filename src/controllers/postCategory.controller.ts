@@ -27,13 +27,29 @@ export const createPostCategory = async (req: Request, res: Response) => {
     return res.status(500).json({ error: 'Erro ao criar categoria de post' })
   }
 }
-export const listPostCategories = async (_req: Request, res: Response) => {
-  try {
-    const categories = await prisma.postCategory.findMany({
-      orderBy: { name: 'asc' }
-    })
 
-    return res.json(categories)
+export const listPostCategories = async (req: Request, res: Response) => {
+  try {
+    const page = parseInt(req.query.page as string) || 1
+    const perPage = parseInt(req.query.perPage as string) || 10
+    const skip = (page - 1) * perPage
+
+    const [categories, total] = await Promise.all([
+      prisma.postCategory.findMany({
+        skip,
+        take: perPage,
+        orderBy: { name: 'asc' }
+      }),
+      prisma.postCategory.count()
+    ])
+
+    return res.json({
+      data: categories,
+      total,
+      page,
+      perPage,
+      totalPages: Math.ceil(total / perPage)
+    })
   } catch (error: any) {
     console.error('Erro ao listar categorias de post:', error)
     return res.status(500).json({ error: 'Erro ao listar categorias de post' })
