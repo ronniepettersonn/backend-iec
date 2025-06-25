@@ -101,7 +101,7 @@ export const listTransactions = async (req: Request, res: Response) => {
     } = req.query
 
     const filters: any = {
-      createdById: userId,
+      //createdById: userId,
     }
 
     if (type && (type === 'INCOME' || type === 'EXPENSE')) {

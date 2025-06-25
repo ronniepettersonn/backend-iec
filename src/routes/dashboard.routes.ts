@@ -8,7 +8,7 @@ const router = Router()
 
 router.use(isAuthenticated)
 router.use(checkModuleAccess('finance'))
-router.use(hasRole('ADMIN'))
+router.use(hasRole('ADMIN', 'FINANCE', 'PASTOR'))
 
 router.get('/dashboard', getFinancialDashboard)
 router.get('/chart-data', getFinancialChartData)

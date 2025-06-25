@@ -98,7 +98,7 @@ export const getFinancialChartData = async (req: Request, res: Response) => {
     // Busca todas as transações no período
     const transactions = await prisma.transaction.findMany({
       where: {
-        createdById: req.userId,
+        //createdById: req.userId,
         date: {
           gte: start,
           lte: end
@@ -234,7 +234,7 @@ export const getFinancialSummaryByPeriod = async (req: Request, res: Response) =
 
     const transactions = await prisma.transaction.findMany({
       where: {
-        createdById: req.userId,
+        //createdById: req.userId,
         date: {
           gte: start,
           lte: end
