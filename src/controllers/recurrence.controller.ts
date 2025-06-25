@@ -43,7 +43,6 @@ export const createRecurrence = async (req: Request, res: Response) => {
   }
 }
 
-
 export const listRecurrences = async (req: Request, res: Response) => {
   try {
     const churchId = req.churchId
@@ -82,7 +81,6 @@ export const listRecurrences = async (req: Request, res: Response) => {
   }
 }
 
-
 export const updateRecurrence = async (req: Request, res: Response) => {
   const { id } = req.params
 
@@ -104,7 +102,6 @@ export const updateRecurrence = async (req: Request, res: Response) => {
     return res.status(400).json({ error: error.message })
   }
 }
-
 
 export const deleteRecurrence = async (req: Request, res: Response) => {
   const { id } = req.params

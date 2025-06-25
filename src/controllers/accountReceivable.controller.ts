@@ -152,7 +152,7 @@ export const listAccountsReceivable = async (req: Request, res: Response) => {
     } = req.query
 
     const filters: any = {
-      createdById: userId,
+      //createdById: userId,
     }
 
     if (startDate && endDate) {
