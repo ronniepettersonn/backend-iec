@@ -21,7 +21,7 @@ export const listAccountsPayable = async (req: Request, res: Response) => {
     } = req.query
 
     const filters: any = {
-      createdById: req.userId,
+      //createdById: req.userId,
     }
 
     if (startDate && endDate) {
@@ -321,7 +321,6 @@ export const deleteAccountPayable = async (req: Request, res: Response) => {
   }
 }
 
-
 export const uploadAccountPayableAttachment = async (req: Request, res: Response) => {
   try {
     const { accountPayableId } = req.params
@@ -352,6 +351,12 @@ export const uploadAccountPayableAttachment = async (req: Request, res: Response
 
 export const getAccountsPayableSummary = async (req: Request, res: Response) => {
   try {
+
+    const churchId = req.user?.churchId
+    if (!churchId) {
+      return res.status(403).json({ error: 'Usuário sem igreja vinculada' })
+    }
+
     const now = new Date();
     const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
     const currentMonthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 1);
@@ -359,12 +364,14 @@ export const getAccountsPayableSummary = async (req: Request, res: Response) => 
 
     const currentMonthAccounts = await prisma.accountPayable.findMany({
       where: {
+        churchId,
         dueDate: { gte: currentMonthStart, lt: currentMonthEnd },
       },
     });
 
     const nextMonthAccounts = await prisma.accountPayable.findMany({
       where: {
+        churchId,
         dueDate: { gte: currentMonthEnd, lt: nextMonthEnd },
       },
     });
@@ -420,12 +427,17 @@ export const getUpcomingAccountsPayable = async (req: Request, res: Response) =>
 
 export const getAccountsPayableAlerts = async (_req: Request, res: Response) => {
   try {
+    const churchId = _req.user?.churchId
+    if (!churchId) {
+      return res.status(403).json({ error: 'Usuário sem igreja vinculada' })
+    }
     const today = new Date();
     const in3Days = new Date(today);
     in3Days.setDate(today.getDate() + 3);
 
     const vencidas = await prisma.accountPayable.findMany({
       where: {
+        churchId,
         paid: false,
         dueDate: {
           lt: today,
@@ -435,6 +447,7 @@ export const getAccountsPayableAlerts = async (_req: Request, res: Response) => 
 
     const vencendo = await prisma.accountPayable.findMany({
       where: {
+        churchId,
         paid: false,
         dueDate: {
           gte: today,
