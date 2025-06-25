@@ -400,7 +400,7 @@ export const getUpcomingAccountsPayable = async (req: Request, res: Response) =>
       return res.status(403).json({ error: 'Usuário sem igreja vinculada' })
     }
 
-    const days = parseInt(req.query.days as string) || 7
+    const days = parseInt(req.query.days as string) || 30
 
     const today = new Date()
     const futureDate = new Date()

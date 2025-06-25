@@ -91,14 +91,20 @@ export const getFinancialChartData = async (req: Request, res: Response) => {
 
     const { startDate, endDate } = req.query
 
-    // Ajusta as datas para o filtro
-    const start = startDate ? new Date(startDate as string) : new Date(new Date().getFullYear(), 0, 1) // Ano atual
-    const end = endDate ? new Date(endDate as string) : new Date() // Agora
+    const now = new Date()
+    const start = startDate ? new Date(startDate as string) : new Date(now.getFullYear(), 0, 1)
+    const end = endDate ? new Date(endDate as string) : new Date(now.getFullYear(), 11, 31)
 
-    // Busca todas as transações no período
+    // Gera os 12 meses do ano
+    const months = Array.from({ length: 12 }).map((_, i) => {
+      const d = new Date(start.getFullYear(), i, 1)
+      const key = d.toISOString().slice(0, 7) // yyyy-MM
+      return { key }
+    })
+
+    // Busca transações no período
     const transactions = await prisma.transaction.findMany({
       where: {
-        //createdById: req.userId,
         date: {
           gte: start,
           lte: end
@@ -112,12 +118,10 @@ export const getFinancialChartData = async (req: Request, res: Response) => {
     const monthlySummary: Record<string, { income: number, expense: number }> = {}
 
     transactions.forEach(tx => {
-      const yearMonth = tx.date.toISOString().slice(0, 7) // Ex: "2025-05"
-
+      const yearMonth = tx.date.toISOString().slice(0, 7)
       if (!monthlySummary[yearMonth]) {
         monthlySummary[yearMonth] = { income: 0, expense: 0 }
       }
-
       if (tx.type === 'INCOME') {
         monthlySummary[yearMonth].income += tx.amount
       } else {
@@ -125,18 +129,21 @@ export const getFinancialChartData = async (req: Request, res: Response) => {
       }
     })
 
-    // Converte em array ordenado
-    const chartData = Object.entries(monthlySummary)
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([month, { income, expense }]) => ({
-        month,
-        income,
-        expense
-      }))
+    // Garante os 12 meses completos ordenados de janeiro a dezembro
+    const chartData = months.map(({ key }) => {
+      const monthData = monthlySummary[key] || { income: 0, expense: 0 }
+      return {
+        month: key,
+        income: monthData.income,
+        expense: monthData.expense
+      }
+    })
+
+    // Ordena os dados do gráfico do mês de janeiro a dezembro
+    chartData.sort((a, b) => a.month.localeCompare(b.month))
 
     // Gráfico de pizza por categoria (no período)
     const categorySummary: Record<string, number> = {}
-
     transactions.forEach(tx => {
       const key = tx.category ? tx.category.name : 'Sem Categoria'
       categorySummary[key] = (categorySummary[key] || 0) + tx.amount
@@ -267,6 +274,9 @@ export const getFinancialSummaryByPeriod = async (req: Request, res: Response) =
 
 export const getDashboardOverview = async (req: Request, res: Response) => {
   try {
+    const now = new Date()
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
+
     // 👤 Total de membros
     const totalMembers = await prisma.member.count()
 
@@ -274,7 +284,7 @@ export const getDashboardOverview = async (req: Request, res: Response) => {
     const newMembers = await prisma.member.count({
       where: {
         createdAt: {
-          gte: new Date(new Date().setMonth(new Date().getMonth() - 1))
+          gte: new Date(new Date().setMonth(now.getMonth() - 1))
         }
       }
     })
@@ -283,7 +293,7 @@ export const getDashboardOverview = async (req: Request, res: Response) => {
     const visitorsLastMonth = await prisma.visitor.count({
       where: {
         visitDate: {
-          gte: new Date(new Date().setMonth(new Date().getMonth() - 1))
+          gte: new Date(new Date().setMonth(now.getMonth() - 1))
         }
       }
     })
@@ -302,17 +312,28 @@ export const getDashboardOverview = async (req: Request, res: Response) => {
       take: 5
     })
 
-    // 💰 Saldo financeiro geral
+    // 💰 Transações
     const transactions = await prisma.transaction.findMany()
-    const totalIncome = transactions.filter(t => t.type === 'INCOME').reduce((acc, t) => acc + t.amount, 0)
-    const totalExpense = transactions.filter(t => t.type === 'EXPENSE').reduce((acc, t) => acc + t.amount, 0)
-    const balance = totalIncome - totalExpense
 
-    // 💵 Caixa diário (último caixa aberto, se existir)
-    const lastCash = await prisma.dailyCash.findFirst({
-      where: { closingAmount: null },
-      orderBy: { date: 'desc' }
-    })
+    // Filtra entradas e saídas do mês atual
+    const incomeThisMonth = transactions
+      .filter(t => t.type === 'INCOME' && t.date >= startOfMonth)
+      .reduce((acc, t) => acc + t.amount, 0)
+
+    const expenseThisMonth = transactions
+      .filter(t => t.type === 'EXPENSE' && t.date >= startOfMonth)
+      .reduce((acc, t) => acc + t.amount, 0)
+
+    // Saldo geral
+    const totalIncome = transactions
+      .filter(t => t.type === 'INCOME')
+      .reduce((acc, t) => acc + t.amount, 0)
+
+    const totalExpense = transactions
+      .filter(t => t.type === 'EXPENSE')
+      .reduce((acc, t) => acc + t.amount, 0)
+
+    const balance = totalIncome - totalExpense
 
     return res.json({
       members: {
@@ -323,15 +344,10 @@ export const getDashboardOverview = async (req: Request, res: Response) => {
       messages: totalMessages,
       events: upcomingEvents,
       financial: {
-        totalIncome,
-        totalExpense,
+        totalIncome: incomeThisMonth,
+        totalExpense: expenseThisMonth,
         balance
-      },
-      dailyCash: lastCash ? {
-        id: lastCash.id,
-        balance: lastCash.closingAmount ? lastCash.closingAmount - lastCash.openingAmount : 0,
-        openedAt: lastCash.date
-      } : null
+      }
     })
   } catch (error) {
     console.error(error)

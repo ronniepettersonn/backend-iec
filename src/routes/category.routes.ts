@@ -4,6 +4,7 @@ import {
   listCategories,
   updateCategory,
   deleteCategory,
+  listCategoriesSelect,
 } from '../controllers/category.controller'
 import { isAuthenticated } from '../middlewares/isAuthenticated'
 import { checkModuleAccess } from '../middlewares/checkModuleAccess'
@@ -15,6 +16,7 @@ router.use(checkModuleAccess('finance'))
 
 router.post('/', isAuthenticated, createCategory)
 router.get('/', isAuthenticated, listCategories)
+router.get('/select', isAuthenticated, listCategoriesSelect)
 router.put('/:id', isAuthenticated, updateCategory)
 router.delete('/:id', isAuthenticated, deleteCategory)
 

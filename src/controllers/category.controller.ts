@@ -30,6 +30,10 @@ export const createCategory = async (req: Request, res: Response) => {
 
 export const listCategories = async (req: Request, res: Response) => {
   const { type, page = '1', limit = '10' } = req.query
+   const churchId = req.churchId
+  if (!churchId) {
+    return res.status(401).json({ error: 'Igreja não autenticada' })
+  }
 
   const pageNumber = parseInt(page as string, 10)
   const limitNumber = parseInt(limit as string, 10)
@@ -38,7 +42,7 @@ export const listCategories = async (req: Request, res: Response) => {
   try {
     const whereClause =
       type && type !== 'ALL'
-        ? { type: type as 'INCOME' | 'EXPENSE' }
+        ? { type: type as 'INCOME' | 'EXPENSE', churchId }
         : undefined
 
     const [categories, total] = await Promise.all([
@@ -63,6 +67,38 @@ export const listCategories = async (req: Request, res: Response) => {
     return res.status(500).json({ error: 'Erro ao listar categorias' })
   }
 }
+
+export const listCategoriesSelect = async (req: Request, res: Response) => {
+  const { type } = req.query
+  const churchId = req.churchId
+
+  if (!churchId) {
+    return res.status(401).json({ error: 'Igreja não autenticada' })
+  }
+
+  try {
+    const whereClause: any = { churchId }
+
+    if (type && type !== 'ALL') {
+      whereClause.type = type as 'INCOME' | 'EXPENSE'
+    }
+
+    const categories = await prisma.category.findMany({
+      where: whereClause,
+      select: {
+        id: true,
+        name: true
+      },
+      orderBy: { name: 'asc' }
+    })
+
+    return res.json(categories)
+  } catch (error) {
+    console.error('[listCategoriesSelect]', error)
+    return res.status(500).json({ error: 'Erro ao listar categorias para select' })
+  }
+}
+
 export const updateCategory = async (req: Request, res: Response) => {
   const { id } = req.params
   const { name, description, type } = req.body
