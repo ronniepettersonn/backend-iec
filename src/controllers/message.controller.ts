@@ -32,7 +32,7 @@ export const sendMessage = async (req: Request, res: Response) => {
         userId: receiverId,
         content: `Você recebeu uma nova mensagem de ${sender?.name}`,
         target: sender?.name ?? 'Usuário',
-        image: 'https://avatar.iran.liara.run/username?username=' + sender?.name,
+        image: sender?.avatar ?? undefined,
         type: 1,
         location: `/mensagens`,
         locationLabel: 'Mensagens',

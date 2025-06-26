@@ -15,8 +15,6 @@ export const createUserByAdmin = async (req: Request, res: Response) => {
     const { name, email, role } = req.body;
     const churchId = req.user?.churchId;
 
-    console.log(req.user)
-
     if (!churchId) {
       return res.status(403).json({ error: 'Admin sem igreja vinculada' });
     }
@@ -28,35 +26,46 @@ export const createUserByAdmin = async (req: Request, res: Response) => {
 
     const avatarUrl = `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(name)}&fontFamily=Helvetica&fontSize=36`
 
-    const hashedPassword = await bcrypt.hash('temp1234', 10); // senha temporária
+    // 🔐 Senha temporária
+    const hashedPassword = await bcrypt.hash('temp1234', 10)
 
+    // 👤 Cria primeiro o membro
+    const member = await prisma.member.create({
+      data: {
+        fullName: name,
+        email,
+        avatarUrl,
+        churchId
+      }
+    })
+
+    // 👤 Cria o usuário já vinculado ao membro
     const user = await prisma.user.create({
       data: {
         name,
         email,
         role,
-        churchId,
         avatar: avatarUrl,
         passwordHash: hashedPassword,
-        firstLogin: true, // campo boolean no model User (se ainda não tiver, podemos adicionar)
-      },
-    });
+        churchId,
+        firstLogin: true,
+        memberId: member.id
+      }
+    })
 
-    // TODO: enviar e-mail com instruções, se desejar
-
+    // 🔑 Geração do token
     const token = crypto.randomBytes(32).toString('hex');
-    const expiry = new Date(Date.now() + 1000 * 60 * 60); // 1h de validade
+    const expiry = new Date(Date.now() + 1000 * 60 * 60); // 1h
 
     await prisma.user.update({
       where: { id: user.id },
       data: {
         resetToken: token,
-        resetTokenExpiry: expiry,
-      },
-    });
+        resetTokenExpiry: expiry
+      }
+    })
 
-    // Crie aqui a URL de definição de senha — ajuste para o seu frontend
-    const url = `https://app.igrejaiec.com.br/define-password/${token}`;
+    const url = `https://app.igrejaiec.com.br/define-password/${token}`
 
     await sendTemplatedEmail({
       to: email,
@@ -65,24 +74,18 @@ export const createUserByAdmin = async (req: Request, res: Response) => {
       variables: {
         logoUrl: 'https://www.igrejaiec.com.br/_next/image?url=%2F_next%2Fstatic%2Fmedia%2Flogo.481d02bd.png&w=750&q=75',
         title: 'Defina sua senha',
-        message: `Olá ${name}, você foi cadastrado(a) no Siec - Sistema da Igreja do Evangelho de Cristo. Para definir sua senha, clique no link abaixo:`,
+        message: `Olá ${name}, você foi cadastrado(a) no Siec - Sistema da Igreja do Evangelho de Cristo. Para definir sua senha, clique no botão abaixo:`,
         buttonUrl: url,
         buttonText: 'Definir minha senha'
-      },
-     /*  html: `
-        <p>Olá, ${name}!</p>
-        <p>Você foi cadastrado no sistema da igreja. Para definir sua senha, clique no link abaixo:</p>
-        <p><a href="${url}">Definir minha senha</a></p>
-        <p>Este link expira em 1 hora.</p>
-      `, */
-    });
+      }
+    })
 
-    res.status(201).json({ message: 'Usuário criado com sucesso', userId: user.id });
+    res.status(201).json({ message: 'Usuário e membro criados com sucesso', userId: user.id })
   } catch (error) {
     console.error('[createUserByAdmin]', error);
-    res.status(500).json({ error: 'Erro ao criar usuário' });
+    res.status(500).json({ error: 'Erro ao criar usuário' })
   }
-};
+}
 
 export const updateUser = async (req: Request, res: Response) => {
   const { id } = req.params
@@ -234,7 +237,6 @@ export const updateProfilePicture = async (req: Request, res: Response) => {
 
     // Se existir avatar, delete do Supabase
     if (user?.avatar) {
-      // O Supabase espera o caminho relativo (sem a URL completa)
       const pathParts = user.avatar.split('/storage/v1/object/public/uploads/');
       const filePath = pathParts[1];
 
@@ -245,23 +247,18 @@ export const updateProfilePicture = async (req: Request, res: Response) => {
 
         if (deleteError) {
           console.error('Erro ao deletar avatar antigo:', deleteError.message);
-          // Podemos seguir mesmo assim, pois não é um erro crítico
         }
       }
     }
 
-    // Gere um nome único para o novo arquivo
     const fileName = `${userId}-${Date.now()}-${file.originalname}`;
 
-    // Upload no Supabase
     const { error: uploadError } = await supabase.storage
       .from('uploads')
       .upload(fileName, file.buffer, {
         contentType: file.mimetype,
-        upsert: true, // sobrescreve se já existir (opcional)
+        //upsert: true,
       });
-
-      console.log('CHEGA AQUI', uploadError)
 
     if (uploadError) {
       console.error(uploadError);
@@ -272,13 +269,19 @@ export const updateProfilePicture = async (req: Request, res: Response) => {
       .from('uploads')
       .getPublicUrl(fileName);
 
-    // Atualiza o avatar no banco
-    await prisma.user.update({
+    // Atualiza o avatar do usuário
+    const updatedUser = await prisma.user.update({
       where: { id: userId },
       data: { avatar: publicUrl.publicUrl },
     });
 
-    
+    // Sincroniza no membro, se existir vínculo
+    if (updatedUser.memberId) {
+      await prisma.member.update({
+        where: { id: updatedUser.memberId },
+        data: { avatarUrl: publicUrl.publicUrl }
+      });
+    }
 
     return res.status(200).json({
       message: 'Foto de perfil atualizada com sucesso!',
@@ -287,5 +290,44 @@ export const updateProfilePicture = async (req: Request, res: Response) => {
   } catch (error) {
     console.error(error);
     return res.status(500).json({ error: 'Erro interno ao atualizar foto de perfil' });
+  }
+};
+
+export const getUserProfile = async (req: Request, res: Response) => {
+  try {
+    const userId = req.userId;
+
+    if (!userId) {
+      return res.status(401).json({ error: 'Usuário não autenticado' });
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        member: true,
+        church: {
+          select: {
+            id: true,
+            name: true
+          }
+        }
+      }
+    });
+
+    if (!user) {
+      return res.status(404).json({ error: 'Usuário não encontrado' });
+    }
+
+    return res.status(200).json({
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      avatar: user.avatar,
+      authority: [user.role]
+    });
+  } catch (error) {
+    console.error('[getUserProfile]', error);
+    return res.status(500).json({ error: 'Erro ao buscar dados do usuário' });
   }
 };

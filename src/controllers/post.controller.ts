@@ -195,3 +195,31 @@ export const listPublicHighlights = async (_req: Request, res: Response) => {
     return res.status(500).json({ error: 'Erro ao listar posts para home pública' })
   }
 }
+
+export const togglePostPublished = async (req: Request, res: Response) => {
+  const { id } = req.params
+
+  try {
+    // Busca o post atual
+    const post = await prisma.post.findUnique({
+      where: { id }
+    })
+
+    if (!post) {
+      return res.status(404).json({ error: 'Post não encontrado' })
+    }
+
+    // Inverte o status
+    const updatedPost = await prisma.post.update({
+      where: { id },
+      data: {
+        published: !post.published
+      }
+    })
+
+    return res.json(updatedPost)
+  } catch (error) {
+    console.error('[togglePostPublished]', error)
+    return res.status(500).json({ error: 'Erro ao alternar status do post' })
+  }
+}

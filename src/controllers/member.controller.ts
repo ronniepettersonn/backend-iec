@@ -5,6 +5,8 @@ import { updateMemberSchema } from '../validations/member.validation'
 import bcrypt from 'bcryptjs'
 import { sendNotification } from '../utils/sendNotification'
 import { uploadFileToSupabase } from '../utils/uploadFile'
+import crypto from 'crypto';
+import { sendTemplatedEmail } from '../services/sendTemplateEmail.service'
 
 export const createMember = async (req: Request, res: Response) => {
   try {
@@ -15,40 +17,90 @@ export const createMember = async (req: Request, res: Response) => {
       return res.status(403).json({ error: 'Igreja não identificada para este usuário' })
     }
 
-    const data = {
-      ...validatedData,
-      joinDate: validatedData.joinDate ? new Date(validatedData.joinDate) : new Date(),
-      birthDate: validatedData.birthDate ? new Date(validatedData.birthDate) : undefined,
-      baptismDate: validatedData.baptismDate ? new Date(validatedData.baptismDate) : undefined,
-      conversionDate: validatedData.conversionDate ? new Date(validatedData.conversionDate) : undefined,
-      status: validatedData.status || 'ATIVO',
-      notes: validatedData.notes,
-      emergencyContactName: validatedData.emergencyContactName,
-      emergencyContactPhone: validatedData.emergencyContactPhone,
-      avatarUrl: validatedData.avatarUrl
-        ? validatedData.avatarUrl
-        : `https://avatar.iran.liara.run/username?username=${validatedData.fullName}`,
+    if (!validatedData.email) {
+      return res.status(400).json({ error: 'O campo email é obrigatório.' })
+    }
+
+    const existingUser = await prisma.user.findUnique({
+      where: { email: validatedData.email }
+    })
+
+    // Define avatar com base no nome (sem espaços)
+    let avatarUrl = validatedData.avatarUrl
+      ? validatedData.avatarUrl
+      : `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(validatedData.fullName.replace(/\s+/g, ''))}&fontFamily=Helvetica&fontSize=36`
+
+    // Se já existe usuário com esse email E ainda não tem member vinculado
+    if (existingUser && !existingUser.memberId) {
+      // Se o usuário já tem avatar, usa ele
+      avatarUrl = existingUser.avatar || avatarUrl
     }
 
     // Criação do membro
     const member = await prisma.member.create({
       data: {
-        ...data,
-        churchId,
+        ...validatedData,
+        joinDate: validatedData.joinDate ? new Date(validatedData.joinDate) : new Date(),
+        birthDate: validatedData.birthDate ? new Date(validatedData.birthDate) : undefined,
+        baptismDate: validatedData.baptismDate ? new Date(validatedData.baptismDate) : undefined,
+        conversionDate: validatedData.conversionDate ? new Date(validatedData.conversionDate) : undefined,
+        status: validatedData.status || 'ATIVO',
+        avatarUrl,
+        churchId
       }
     })
 
-    // Criação do usuário vinculado ao membro
-    const passwordHash = await bcrypt.hash('senha123', 10) // senha padrão
+    // Caso o usuário já exista e ainda não esteja vinculado
+    if (existingUser) {
+      if (existingUser.memberId) {
+        return res.status(400).json({ error: 'Já existe um usuário com este e-mail vinculado a outro membro.' })
+      }
+
+      await prisma.user.update({
+        where: { id: existingUser.id },
+        data: {
+          memberId: member.id
+        }
+      })
+
+      return res.status(201).json({
+        message: 'Membro criado e vinculado a usuário existente com sucesso.',
+        userStatus: 'vinculado'
+      })
+    }
+
+    // Criação do usuário (novo)
+    const token = crypto.randomBytes(32).toString('hex')
+    const expiry = new Date(Date.now() + 1000 * 60 * 60)
+    const hashedPassword = await bcrypt.hash('temp1234', 10)
+
     const createdUser = await prisma.user.create({
       data: {
-        name: data.fullName,
-        email: data.email!,
-        passwordHash,
+        name: validatedData.fullName,
+        email: validatedData.email,
+        passwordHash: hashedPassword,
         memberId: member.id,
         role: 'MEMBER',
-        avatar: data.avatarUrl,
-        churchId
+        avatar: avatarUrl,
+        churchId,
+        firstLogin: true,
+        resetToken: token,
+        resetTokenExpiry: expiry
+      }
+    })
+
+    const url = `https://app.igrejaiec.com.br/define-password/${token}`
+
+    await sendTemplatedEmail({
+      to: validatedData.email,
+      subject: 'Defina sua senha no sistema da igreja',
+      templateName: 'define-password',
+      variables: {
+        logoUrl: 'https://www.igrejaiec.com.br/_next/image?url=%2F_next%2Fstatic%2Fmedia%2Flogo.481d02bd.png&w=750&q=75',
+        title: 'Defina sua senha',
+        message: `Olá ${validatedData.fullName}, seja bem-vindo(a) à IEC. Para definir sua senha e acessar o sistema, clique no botão abaixo:`,
+        buttonUrl: url,
+        buttonText: 'Definir minha senha'
       }
     })
 
@@ -56,18 +108,22 @@ export const createMember = async (req: Request, res: Response) => {
       userId: createdUser.id,
       content: 'Sua conta foi criada com sucesso! Faça login para acessar o sistema.',
       target: createdUser.name,
-      image: data.avatarUrl,
+      image: avatarUrl,
       type: 2,
       status: 'succeed',
-      churchId: req.churchId!
+      churchId
     })
 
-    return res.status(201).json({ message: 'Membro e usuário criados com sucesso.' })
+    return res.status(201).json({
+      message: 'Membro e usuário criados com sucesso.',
+      userStatus: 'criado'
+    })
   } catch (error) {
     console.error(error)
     return res.status(500).json({ error: 'Erro ao criar membro e usuário.' })
   }
 }
+
 
 export async function getMembers (req: Request, res: Response) {
   try {
