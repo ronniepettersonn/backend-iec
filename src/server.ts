@@ -34,6 +34,7 @@ import postCategoryRoutes from './routes/postCategory.routes'
 import churchModuleRoutes from './routes/churchModule.routes'
 import churchRoutes from './routes/church.routes'
 import activeModuleRoutes from './routes/activeModule.routes'
+import bankAccountRoutes from './routes/banckAccount.routes'
 
 dotenv.config()
 
@@ -72,6 +73,7 @@ app.use('/post-categories', postCategoryRoutes)
 app.use('/modules', churchModuleRoutes);
 app.use('/churches', churchRoutes);
 app.use('/churches/modules', activeModuleRoutes);
+app.use('/banks', bankAccountRoutes);
 
 app.use('/upload', uploadRoutes)
 

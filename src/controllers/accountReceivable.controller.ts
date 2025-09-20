@@ -3,16 +3,107 @@ import { prisma } from '../prisma/client'
 import { z } from 'zod'
 import { ensureDailyCashOpen } from './cash.controller'
 
-const createAccountReceivableSchema = z.object({
-  dueDate: z.string().datetime(),
+export const createAccountReceivableSchema = z.object({
+  dueDate: z.string().datetime(),                 // pode trocar por z.coerce.date() se preferir
   amount: z.number().positive(),
   description: z.string().min(3),
-  categoryId: z.string().optional(),
-  memberId: z.string().optional(),
-  received: z.boolean().optional()
+  categoryId: z.string().uuid().optional(),
+  received: z.boolean().optional(),
+  memberId: z.string().uuid().optional(),
+  // usados só para criar o lançamento quando received=true:
+  paymentMethod: z.enum(['BANK', 'CASH']).optional(),
+  bankAccountId: z.string().uuid().optional(),
+}).superRefine((d, ctx) => {
+  if (d.received) {
+    if (!d.paymentMethod) {
+      ctx.addIssue({ code: 'custom', message: 'Informe o método de pagamento (BANK ou CASH)', path: ['paymentMethod'] })
+    }
+    if (d.paymentMethod === 'BANK' && !d.bankAccountId) {
+      ctx.addIssue({ code: 'custom', message: 'bankAccountId é obrigatório quando paymentMethod = BANK', path: ['bankAccountId'] })
+    }
+  }
 })
 
 export const createAccountReceivable = async (req: Request, res: Response) => {
+  try {
+    const userId = req.userId
+    const churchId = req.user?.churchId
+    if (!userId || !churchId) {
+      return res.status(401).json({ error: 'Usuário não autenticado ou sem igreja vinculada' })
+    }
+
+    const validated = createAccountReceivableSchema.parse(req.body)
+
+    // validações de integridade
+    if (validated.categoryId) {
+      const category = await prisma.category.findUnique({ where: { id: validated.categoryId } })
+      if (!category) return res.status(400).json({ error: 'Categoria não encontrada' })
+      if (category.type !== 'INCOME') return res.status(400).json({ error: 'Categoria deve ser do tipo "Entrada"' })
+      if (category.churchId !== churchId) return res.status(403).json({ error: 'Categoria não pertence à sua igreja' })
+    }
+    if (validated.memberId) {
+      const member = await prisma.member.findUnique({ where: { id: validated.memberId } })
+      if (!member || member.churchId !== churchId) {
+        return res.status(403).json({ error: 'Membro não pertence à sua igreja' })
+      }
+    }
+    if (validated.received && validated.paymentMethod === 'BANK' && validated.bankAccountId) {
+      const bank = await prisma.bankAccount.findUnique({ where: { id: validated.bankAccountId } })
+      if (!bank || bank.churchId !== churchId) {
+        return res.status(403).json({ error: 'Conta bancária não pertence à sua igreja' })
+      }
+    }
+
+    // ❗ Remover campos que NÃO existem no modelo de AccountReceivable
+    const {
+      paymentMethod,   // só pro lançamento
+      bankAccountId,   // só pro lançamento
+      ...rest
+    } = validated
+
+    // Monta dados da conta
+    const accountData = {
+      ...rest,
+      dueDate: new Date(validated.dueDate),
+      receivedAt: validated.received ? new Date() : undefined,
+      received: validated.received ?? false,
+      createdById: userId,
+      memberId: validated.memberId || null,
+      churchId,
+    }
+
+    const result = await prisma.$transaction(async (tx) => {
+      const account = await tx.accountReceivable.create({ data: accountData })
+
+      if (account.received) {
+        await tx.transaction.create({
+          data: {
+            amount: account.amount,
+            date: new Date(),
+            type: 'INCOME',
+            description: account.description,
+            categoryId: account.categoryId ?? undefined,
+            paymentMethod: paymentMethod!,                 // existe por causa do refine
+            bankAccountId: paymentMethod === 'BANK' ? bankAccountId! : null,
+            createdById: userId,
+            churchId,
+            // bom ter a referência:
+            accountReceivableId: account.id,              // adicione este campo no seu modelo Transaction
+          }
+        })
+      }
+
+      return account
+    })
+
+    return res.status(201).json(result)
+  } catch (error: any) {
+    console.error(error)
+    return res.status(400).json({ error: error.message })
+  }
+}
+
+/* export const createAccountReceivable = async (req: Request, res: Response) => {
   try {
     const userId = req.userId
     const churchId = req.user?.churchId
@@ -23,7 +114,6 @@ export const createAccountReceivable = async (req: Request, res: Response) => {
 
     const validated = createAccountReceivableSchema.parse(req.body)
 
-    // 🔍 Validação do tipo de categoria
     if (validated.categoryId) {
       const category = await prisma.category.findUnique({
         where: { id: validated.categoryId }
@@ -37,7 +127,6 @@ export const createAccountReceivable = async (req: Request, res: Response) => {
         return res.status(400).json({ error: 'Categoria deve ser do tipo "Entrada"' })
       }
 
-      // ⚠️ Confere se a categoria pertence à igreja
       if (category.churchId !== churchId) {
         return res.status(403).json({ error: 'Categoria não pertence à sua igreja' })
       }
@@ -55,16 +144,24 @@ export const createAccountReceivable = async (req: Request, res: Response) => {
 
     const account = await prisma.accountReceivable.create({ data })
 
-    // 💰 Se já recebido, cria a transação
     if (account.received) {
-      await ensureDailyCashOpen(userId, churchId)
+      // ⚠️ Novo: exige `paymentMethod`
+      const paymentMethod = validated.paymentMethod
+      const bankAccountId = validated.bankAccountId ?? null
+
+      if (!paymentMethod) {
+        return res.status(400).json({ error: 'Informe o método de pagamento (BANK ou CASH)' })
+      }
+
       await prisma.transaction.create({
         data: {
           amount: account.amount,
           date: new Date(),
           type: 'INCOME',
           description: account.description,
-          categoryId: account.categoryId,
+          categoryId: account.categoryId ?? undefined,
+          paymentMethod,
+          bankAccountId: paymentMethod === 'BANK' ? bankAccountId : null,
           createdById: userId,
           churchId,
         }
@@ -76,7 +173,7 @@ export const createAccountReceivable = async (req: Request, res: Response) => {
     console.error(error)
     return res.status(400).json({ error: error.message })
   }
-}
+} */
 
 export const markAsReceived = async (req: Request, res: Response) => {
   try {
@@ -105,7 +202,12 @@ export const markAsReceived = async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Conta já recebida' })
     }
 
-    await ensureDailyCashOpen(userId, churchId)
+    // ⚠️ Novo: precisa do método de pagamento na marcação
+    const { paymentMethod, bankAccountId } = req.body
+
+    if (!paymentMethod || !['BANK', 'CASH'].includes(paymentMethod)) {
+      return res.status(400).json({ error: 'Método de pagamento obrigatório: BANK ou CASH' })
+    }
 
     const now = new Date()
 
@@ -124,6 +226,8 @@ export const markAsReceived = async (req: Request, res: Response) => {
         type: 'INCOME',
         description: updated.description,
         categoryId: updated.categoryId ?? undefined,
+        paymentMethod,
+        bankAccountId: paymentMethod === 'BANK' ? bankAccountId : null,
         createdById: userId,
         churchId,
       }

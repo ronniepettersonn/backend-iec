@@ -1,5 +1,5 @@
 import { Router } from 'express'
-import { createCult, createCultType, deleteCult, getCultById, getPastCults, getUpcomingCults, listCults, listCultTypes, updateCult, updateCultType } from '../controllers/cult.controller'
+import { createCult, createCultType, deleteCult, getCultById, getPastCults, getUpcomingCults, listCults, listCultsForSelect, listCultTypes, updateCult, updateCultType } from '../controllers/cult.controller'
 import { isAuthenticated } from '../middlewares/isAuthenticated'
 import { hasRole } from '../middlewares/hasRole'
 import { Role } from '../@types/roles'
@@ -10,6 +10,7 @@ router.use(isAuthenticated)
 
 router.post('/', hasRole(Role.ADMIN, Role.PASTOR), createCult)
 router.get('/', listCults)
+router.get('/select', listCultsForSelect)
 // 🟩 Cultos futuros
 router.get('/upcoming', isAuthenticated, getUpcomingCults)
 // 🟦 Cultos passados

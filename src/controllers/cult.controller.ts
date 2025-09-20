@@ -1,5 +1,7 @@
 import { Request, Response } from "express"
 import { prisma } from '../prisma/client'
+import { format } from 'date-fns'
+import { ptBR } from 'date-fns/locale'
 
 export const createCult = async (req: Request, res: Response) => {
   const {
@@ -210,6 +212,39 @@ export const listCults = async (req: Request, res: Response) => {
   }
 }
 
+
+export const listCultsForSelect = async (req: Request, res: Response) => {
+  try {
+    const churchId = req.churchId
+
+    if (!churchId) {
+      return res.status(403).json({ error: 'Igreja não identificada' })
+    }
+
+    const cults = await prisma.cult.findMany({
+      where: {
+        deletedAt: null,
+        churchId,
+      },
+      orderBy: { date: 'desc' },
+      select: {
+        id: true,
+        date: true,
+      },
+    })
+
+    const data = cults.map(cult => ({
+      value: cult.id,
+      label: format(new Date(cult.date), 'dd/MM/yy HH:mm', { locale: ptBR }),
+    }))
+
+    return res.json(data)
+  } catch (error) {
+    console.error(error)
+    return res.status(500).json({ error: 'Erro ao carregar cultos para select' })
+  }
+}
+
 export const getCultById = async (req: Request, res: Response) => {
   const { id } = req.params
 
@@ -274,7 +309,6 @@ export const deleteCult = async (req: Request, res: Response) => {
 
     const isFilled =
       (cult.totalPeople ?? 0) > 0 ||
-      (cult.visitors ?? 0) > 0 ||
       (cult.children ?? 0) > 0 ||
       (cult.saved ?? 0) > 0 ||
       (cult.healed ?? 0) > 0 ||

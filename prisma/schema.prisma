@@ -55,6 +55,12 @@ model Member {
 
   churchId String
   church   Church @relation(fields: [churchId], references: [id])
+
+  //ScheduleAssignment ScheduleAssignment[]
+
+  //ScheduleMember ScheduleMember[]
+  ScheduleAssignment ScheduleAssignment[]
+  ScheduleMember     ScheduleMember[]
 }
 
 model MemberRole {
@@ -122,11 +128,19 @@ enum Role {
 model Transaction {
   id          String          @id @default(uuid())
   date        DateTime
-  createdById String
-  createdBy   User            @relation(fields: [createdById], references: [id])
   type        TransactionType
   description String
   amount      Float
+
+  paymentMethod PaymentMethod?
+
+  accountReceivableId String?
+
+  bankAccountId String?
+  bankAccount   BankAccount? @relation(fields: [bankAccountId], references: [id])
+
+  createdById String
+  createdBy   User   @relation(fields: [createdById], references: [id])
 
   categoryId String?
   category   Category? @relation(fields: [categoryId], references: [id])
@@ -142,6 +156,11 @@ model Transaction {
 
   churchId String
   church   Church @relation(fields: [churchId], references: [id])
+}
+
+enum PaymentMethod {
+  CASH
+  BANK
 }
 
 enum TransactionType {
@@ -163,6 +182,12 @@ model Schedule {
   church   Church @relation(fields: [churchId], references: [id])
 
   members Member[] @relation("ScheduleMembers")
+
+  //ScheduleAssignment ScheduleAssignment[]
+
+  //ScheduleMember ScheduleMember[]
+  ScheduleAssignment ScheduleAssignment[]
+  ScheduleMember     ScheduleMember[]
 }
 
 model Ministry {
@@ -179,6 +204,9 @@ model Ministry {
 
   churchId String
   church   Church @relation(fields: [churchId], references: [id])
+
+  //ScheduleRole ScheduleRole[]
+  ScheduleRole ScheduleRole[]
 }
 
 model Event {
@@ -213,6 +241,9 @@ model Visitor {
   contactedBy   User?     @relation(fields: [contactedById], references: [id])
 
   active Boolean @default(true)
+
+  cult   Cult?   @relation(fields: [cultId], references: [id])
+  cultId String?
 
   churchId String
   church   Church @relation(fields: [churchId], references: [id])
@@ -394,7 +425,6 @@ model Cult {
   director   Member? @relation("CultDirector", fields: [directorId], references: [id])
 
   totalPeople        Int?
-  visitors           Int?
   children           Int?
   saved              Int?
   healed             Int?
@@ -415,6 +445,8 @@ model Cult {
   schedule CultSchedule[]
 
   Member Member[]
+
+  visitors Visitor[]
 
   churchId String
   church   Church @relation(fields: [churchId], references: [id])
@@ -449,6 +481,94 @@ model CultSchedule {
 
   churchId String
   church   Church @relation(fields: [churchId], references: [id])
+
+  //ScheduleAssignment ScheduleAssignment[]
+  ScheduleAssignment ScheduleAssignment[]
+}
+
+// Origem da alocação
+enum AssignmentSourceType {
+  MINISTRY // veio de Schedule (ministérios)
+  CULT // veio de CultSchedule (pregação/direção)
+}
+
+// Papel/função usado só no contexto de ESCALAS (não conflita com seu enum Role)
+model ScheduleRole {
+  id                  String               @id @default(uuid())
+  code                String // ex: "PREGADOR", "DIRETOR", "VOZ_PRINCIPAL", "DIACONO"
+  name                String
+  ministryId          String? // opcional, quando um papel é específico de um ministério
+  ministry            Ministry?            @relation(fields: [ministryId], references: [id])
+  churchId            String
+  church              Church               @relation(fields: [churchId], references: [id])
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  overlapFrom         OverlapRule[]        @relation("OverlapFrom") // este papel é o 'from'
+  overlapTo           OverlapRule[]        @relation("OverlapTo") // este papel é o 'to'
+  ScheduleAssignments ScheduleAssignment[]
+  ScheduleMembers     ScheduleMember[]
+
+  @@unique([churchId, code]) // evita duplicar códigos por igreja
+}
+
+// Regras de sobreposição entre papeis de ESCALA
+model OverlapRule {
+  id         String       @id @default(uuid())
+  // Lado "from"
+  fromRoleId String
+  fromRole   ScheduleRole @relation("OverlapFrom", fields: [fromRoleId], references: [id])
+  // Lado "to"
+  toRoleId   String
+  toRole     ScheduleRole @relation("OverlapTo", fields: [toRoleId], references: [id])
+  allowed    Boolean      @default(false)
+  churchId   String
+  church     Church       @relation(fields: [churchId], references: [id])
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+
+  @@unique([churchId, fromRoleId, toRoleId])
+  @@index([fromRoleId])
+  @@index([toRoleId])
+}
+
+// Registro unificado para checagem de conflitos
+model ScheduleAssignment {
+  id             String               @id @default(uuid())
+  sourceType     AssignmentSourceType
+  scheduleId     String? // se veio de Schedule (ministério)
+  schedule       Schedule?            @relation(fields: [scheduleId], references: [id])
+  cultScheduleId String? // se veio de CultSchedule
+  cultSchedule   CultSchedule?        @relation(fields: [cultScheduleId], references: [id])
+  memberId       String
+  member         Member               @relation(fields: [memberId], references: [id])
+  scheduleRoleId String
+  scheduleRole   ScheduleRole         @relation(fields: [scheduleRoleId], references: [id])
+  startAt        DateTime
+  endAt          DateTime
+  allowOverlap   Boolean              @default(false) // exceção local
+  churchId       String
+  church         Church               @relation(fields: [churchId], references: [id])
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+
+  @@index([memberId, startAt, endAt, churchId])
+  @@index([scheduleId])
+  @@index([cultScheduleId])
+}
+
+model ScheduleMember {
+  id             String        @id @default(uuid())
+  scheduleId     String
+  schedule       Schedule      @relation(fields: [scheduleId], references: [id])
+  memberId       String
+  member         Member        @relation(fields: [memberId], references: [id])
+  // Papel no contexto de escala (não é seu enum Role)
+  scheduleRoleId String?
+  scheduleRole   ScheduleRole? @relation(fields: [scheduleRoleId], references: [id])
+  churchId       String
+  church         Church        @relation(fields: [churchId], references: [id])
+
+  @@unique([scheduleId, memberId]) // evita duplicidade por escala
 }
 
 model Category {
@@ -468,16 +588,39 @@ model Category {
   church   Church @relation(fields: [churchId], references: [id])
 }
 
+enum RecurrenceFrequency {
+  DAILY
+  WEEKLY
+  MONTHLY
+  BIMONTHLY
+  QUARTERLY
+  SEMIANNUAL
+  ANNUAL
+}
+
+enum RecurrenceStatus {
+  active
+  finished
+  overdue
+  paused
+}
+
 model Recurrence {
-  id          String    @id @default(uuid())
-  startDate   DateTime
-  endDate     DateTime?
-  dueDay      Int       @default(1)
-  frequency   String
-  amount      Float
+  id        String    @id @default(uuid())
+  startDate DateTime
+  endDate   DateTime?
+  dueDay    Int       @default(1)
+
+  //frequency    String
+  frequency   RecurrenceFrequency
+  amount      Decimal             @db.Decimal(14, 2)
   description String?
 
-  status String @default("active") // 'active', 'finished', 'overdue', etc.
+  //status    String            @default("active")
+  status RecurrenceStatus
+
+  totalInstallments Int? // null = indeterminada (ex: contas mensais sem data final)
+  paidInstallments  Int  @default(0)
 
   categoryId String?
   category   Category? @relation(fields: [categoryId], references: [id])
@@ -487,6 +630,9 @@ model Recurrence {
 
   churchId String
   church   Church @relation(fields: [churchId], references: [id])
+
+  @@index([churchId])
+  @@index([status])
 }
 
 model DailyCash {
@@ -521,6 +667,8 @@ model AccountPayable {
   recurrenceId String?
   recurrence   Recurrence? @relation(fields: [recurrenceId], references: [id])
 
+  installmentNumber Int?
+
   categoryId String?
   category   Category? @relation(fields: [categoryId], references: [id])
 
@@ -532,6 +680,8 @@ model AccountPayable {
 
   churchId String
   church   Church @relation(fields: [churchId], references: [id])
+
+  @@unique([recurrenceId, installmentNumber])
 }
 
 model LogEntry {
@@ -737,6 +887,20 @@ model Church {
   PostTag PostTag[]
 
   PostComment PostComment[]
+
+  BankAccount BankAccount[]
+
+  //ScheduleRole ScheduleRole[]
+
+  //OverlapRule OverlapRule[]
+
+  //ScheduleAssignment ScheduleAssignment[]
+
+  //ScheduleMember ScheduleMember[]
+  ScheduleRole       ScheduleRole[]
+  OverlapRule        OverlapRule[]
+  ScheduleAssignment ScheduleAssignment[]
+  ScheduleMember     ScheduleMember[]
 }
 
 enum ChurchStatus {
@@ -767,4 +931,17 @@ model ActiveModule {
   module ChurchModule @relation(fields: [moduleId], references: [id])
 
   @@unique([churchId, moduleId])
+}
+
+model BankAccount {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  churchId    String // multi-igreja
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  transactions Transaction[]
+
+  church Church @relation(fields: [churchId], references: [id])
 }

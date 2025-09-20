@@ -10,8 +10,11 @@ export const updateAccountPayableSchema = z.object({
 })
 
 export const createAccountPayableSchema = z.object({
-  dueDate: z.string().datetime(),
-  amount: z.number().positive(),
-  description: z.string().min(3),
+  dueDate: z.coerce.date({
+    required_error: 'A data de vencimento é obrigatória',
+    invalid_type_error: 'Data inválida',
+  }),
+  amount: z.coerce.number().positive({ message: 'O valor deve ser positivo' }),
+  description: z.string().min(3, { message: 'Descrição muito curta' }),
   categoryId: z.string().uuid().optional(),
 })
