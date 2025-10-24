@@ -338,47 +338,90 @@ export const uploadAccountPayableAttachment = async (req: Request, res: Response
 
 export const getAccountsPayableSummary = async (req: Request, res: Response) => {
   try {
-
     const churchId = req.user?.churchId
     if (!churchId) {
       return res.status(403).json({ error: 'Usuário sem igreja vinculada' })
     }
 
-    const now = new Date();
-    const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-    const currentMonthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 1);
-    const nextMonthEnd = new Date(now.getFullYear(), now.getMonth() + 2, 1);
+    const now = new Date()
+    const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1)         // inclusive
+    const currentMonthEnd   = new Date(now.getFullYear(), now.getMonth() + 1, 1)     // exclusive
+    const nextMonthEnd      = new Date(now.getFullYear(), now.getMonth() + 2, 1)     // exclusive
 
-    const currentMonthAccounts = await prisma.accountPayable.findMany({
+    // --- Contas a pagar (como já estava) ---
+    const [currentMonthAccounts, nextMonthAccounts] = await Promise.all([
+      prisma.accountPayable.findMany({
+        where: {
+          churchId,
+          dueDate: { gte: currentMonthStart, lt: currentMonthEnd },
+        },
+      }),
+      prisma.accountPayable.findMany({
+        where: {
+          churchId,
+          dueDate: { gte: currentMonthEnd, lt: nextMonthEnd },
+        },
+      }),
+    ])
+
+    const toNumber = (v: any) => typeof v === 'number' ? v : Number(v) // ajuda se amount for Decimal
+
+    const totalDoMes = currentMonthAccounts.reduce((sum, acc) => sum + toNumber(acc.amount), 0)
+    const totalPago = currentMonthAccounts
+      .filter(acc => acc.paid)
+      .reduce((sum, acc) => sum + toNumber(acc.amount), 0)
+    const totalEmAberto = totalDoMes - totalPago
+    const totalDoProximoMes = nextMonthAccounts.reduce((sum, acc) => sum + toNumber(acc.amount), 0)
+
+    // --- ENTRADAS do mês vigente (AJUSTE ESTE BLOCO AO SEU SCHEMA) ---
+    // EXEMPLO 1 (tabela Transaction com type='INCOME' e campo date):
+    // const { _sum } = await prisma.transaction.aggregate({
+    //   where: {
+    //     churchId,
+    //     type: 'INCOME',
+    //     date: { gte: currentMonthStart, lt: currentMonthEnd },
+    //   },
+    //   _sum: { amount: true },
+    // })
+
+    // EXEMPLO 2 (tabela AccountReceivable com received=true e receivedAt):
+    // const { _sum } = await prisma.accountReceivable.aggregate({
+    //   where: {
+    //     churchId,
+    //     received: true,
+    //     receivedAt: { gte: currentMonthStart, lt: currentMonthEnd },
+    //   },
+    //   _sum: { amount: true },
+    // })
+
+    // ====> TROQUE PELO SEU CASO REAL:
+    const { _sum } = await prisma.transaction.aggregate({
       where: {
         churchId,
-        dueDate: { gte: currentMonthStart, lt: currentMonthEnd },
+        type: 'INCOME',                          // ajuste se o enum/campo for diferente
+        date: { gte: currentMonthStart, lt: currentMonthEnd }, // ajuste o campo de data
       },
-    });
+      _sum: { amount: true },
+    })
 
-    const nextMonthAccounts = await prisma.accountPayable.findMany({
-      where: {
-        churchId,
-        dueDate: { gte: currentMonthEnd, lt: nextMonthEnd },
-      },
-    });
+    const totalEntradasDoMes = toNumber(_sum.amount || 0)
+    const repasseDoMes = Number((totalEntradasDoMes * 0.15).toFixed(2)) // 15% com 2 casas
 
-    const totalDoMes = currentMonthAccounts.reduce((sum, acc) => sum + acc.amount, 0);
-    const totalPago = currentMonthAccounts.filter(acc => acc.paid).reduce((sum, acc) => sum + acc.amount, 0);
-    const totalEmAberto = totalDoMes - totalPago;
-    const totalDoProximoMes = nextMonthAccounts.reduce((sum, acc) => sum + acc.amount, 0);
-
-    res.json({
+    return res.json({
       totalDoMes,
       totalPago,
       totalEmAberto,
       totalDoProximoMes,
-    });
+      repasseDoMes,              // <= novo campo solicitado
+      // opcionalmente envie a base:
+      // totalEntradasDoMes
+      // periodo: { inicio: currentMonthStart, fimExclusivo: currentMonthEnd }
+    })
   } catch (error) {
-    console.error('[getAccountsPayableSummary]', error);
-    res.status(500).json({ error: 'Erro ao carregar resumo de contas a pagar' });
+    console.error('[getAccountsPayableSummary]', error)
+    return res.status(500).json({ error: 'Erro ao carregar resumo de contas a pagar' })
   }
-};
+}
 
 export const getUpcomingAccountsPayable = async (req: Request, res: Response) => {
   try {
