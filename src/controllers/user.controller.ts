@@ -44,7 +44,7 @@ export const createUserByAdmin = async (req: Request, res: Response) => {
       data: {
         name,
         email,
-        role,
+        roles: role,
         avatar: avatarUrl,
         passwordHash: hashedPassword,
         churchId,
@@ -65,16 +65,16 @@ export const createUserByAdmin = async (req: Request, res: Response) => {
       }
     })
 
-    const url = `https://app.igrejaiec.com.br/define-password/${token}`
+    const url = `https://app.verboigarape.com.br/define-password/${token}`
 
     await sendTemplatedEmail({
       to: email,
-      subject: 'Defina sua senha no sistema da igreja',
+      subject: 'Defina sua senha no Lightra',
       templateName: 'define-password',
       variables: {
-        logoUrl: 'https://www.igrejaiec.com.br/_next/image?url=%2F_next%2Fstatic%2Fmedia%2Flogo.481d02bd.png&w=750&q=75',
+        logoUrl: 'https://www.verboigarape.com.br/_next/image?url=%2F_next%2Fstatic%2Fmedia%2Flogo.481d02bd.png&w=750&q=75',
         title: 'Defina sua senha',
-        message: `Olá ${name}, você foi cadastrado(a) no Siec - Sistema da Igreja do Evangelho de Cristo. Para definir sua senha, clique no botão abaixo:`,
+        message: `Olá ${name}, você foi cadastrado(a) no Lightra. Para definir sua senha, clique no botão abaixo:`,
         buttonUrl: url,
         buttonText: 'Definir minha senha'
       }
@@ -164,7 +164,7 @@ export const listUsers = async (req: Request, res: Response) => {
         id: true,
         name: true,
         email: true,
-        role: true,
+        roles: true,
         active: true,
         createdAt: true,
         avatar: true,
@@ -204,7 +204,7 @@ export const updateUserRole = async (req: Request, res: Response) => {
   try {
     const user = await prisma.user.update({
       where: { id },
-      data: { role }
+      data: { roles: role }
     })
 
     await sendNotification({
@@ -322,9 +322,9 @@ export const getUserProfile = async (req: Request, res: Response) => {
       id: user.id,
       name: user.name,
       email: user.email,
-      role: user.role,
+      role: user.roles,
       avatar: user.avatar,
-      authority: [user.role]
+      authority: user.roles
     });
   } catch (error) {
     console.error('[getUserProfile]', error);

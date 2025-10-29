@@ -78,7 +78,7 @@ export const login = async (req: Request, res: Response) => {
     const token = jwt.sign(
       { 
         id: user.id, 
-        role: user.role, 
+        role: user.roles, 
         churchId: user.churchId, 
       },
       JWT_SECRET,
@@ -91,9 +91,9 @@ export const login = async (req: Request, res: Response) => {
         id: user.id,
         name: user.name,
         email: user.email,
-        role: user.role,
+        role: user.roles,
         firstLogin: user.firstLogin,
-        authority: [user.role],
+        authority: user.roles,
         avatar: user.avatar
       }
     })
@@ -171,7 +171,7 @@ export const loginWithGoogle = async (req: Request, res: Response) => {
 
     // Gera o token JWT
     const token = jwt.sign(
-      { id: user.id, role: user.role },
+      { id: user.id, role: user.roles },
       process.env.JWT_SECRET || 'defaultsecret',
       { expiresIn: '1d' }
     )

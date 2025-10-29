@@ -80,7 +80,7 @@ export const createMember = async (req: Request, res: Response) => {
         email: validatedData.email,
         passwordHash: hashedPassword,
         memberId: member.id,
-        role: 'MEMBER',
+        roles: ['MEMBER'],
         avatar: avatarUrl,
         churchId,
         firstLogin: true,

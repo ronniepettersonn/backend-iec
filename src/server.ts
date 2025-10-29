@@ -35,6 +35,7 @@ import churchModuleRoutes from './routes/churchModule.routes'
 import churchRoutes from './routes/church.routes'
 import activeModuleRoutes from './routes/activeModule.routes'
 import bankAccountRoutes from './routes/banckAccount.routes'
+import offeringsRoutes from "./routes/offerings.routes"
 
 dotenv.config()
 
@@ -74,6 +75,7 @@ app.use('/modules', churchModuleRoutes);
 app.use('/churches', churchRoutes);
 app.use('/churches/modules', activeModuleRoutes);
 app.use('/banks', bankAccountRoutes);
+app.use("/offerings", offeringsRoutes)
 
 app.use('/upload', uploadRoutes)
 

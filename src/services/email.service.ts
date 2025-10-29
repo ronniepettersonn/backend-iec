@@ -13,7 +13,7 @@ export const sendEmail = async ({
 }) => {
   try {
     const response = await resend.emails.send({
-      from: 'IEC - Igreja do Evangelho de Cristo <noreply@igrejaiec.com.br>', // ou domínio de testes
+      from: 'Verbo da Vida - Igarapé <noreply@updates.verboigarape.com.br>', // ou domínio de testes
       to,
       subject,
       html

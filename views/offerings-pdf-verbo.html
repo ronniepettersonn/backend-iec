@@ -1,0 +1,341 @@
+<!doctype html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="utf-8" />
+    <title>Contagem de Dízimos e Ofertas</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+        }
+
+        body {
+            font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+            color: #111;
+            margin: 0;
+            padding: 24px;
+        }
+
+        .row {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 16px;
+        }
+
+        /* Header */
+        .logo-title {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .logo img {
+            height: 40px;
+        }
+
+        .brand {
+            font-weight: 800;
+            letter-spacing: 0.5px;
+        }
+
+        .doc-title {
+            text-align: right;
+            font-weight: 800;
+            font-size: 18px;
+            line-height: 1.1;
+        }
+
+        /* Linha de opções */
+        .options {
+            display: flex;
+            gap: 28px;
+            flex-wrap: wrap;
+            margin-top: 14px;
+        }
+
+        .opt {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 12px;
+        }
+
+        .box {
+            width: 14px;
+            height: 14px;
+            border: 2px solid #000;
+            border-radius: 3px;
+            display: inline-block;
+        }
+
+        .box.filled {
+            background: #000;
+        }
+
+        .right-fields {
+            display: flex;
+            gap: 12px;
+        }
+
+        .pill {
+            min-width: 120px;
+            padding: 4px 8px;
+            border: 2px solid #000;
+            border-radius: 12px;
+            font-size: 12px;
+        }
+
+        .label {
+            font-weight: 700;
+            margin-right: 6px;
+        }
+
+        /* Seções */
+        .section {
+            margin-top: 16px;
+        }
+
+        .section-title {
+            font-weight: 800;
+            font-size: 13px;
+            margin-bottom: 6px;
+        }
+
+        /* Tabelas principais */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+        }
+
+        th,
+        td {
+            border: 2px solid #000;
+            padding: 8px 10px;
+        }
+
+        th {
+            background: #f7f7f7;
+            font-weight: 800;
+        }
+
+        .right {
+            text-align: right;
+        }
+
+        .center {
+            text-align: center;
+        }
+
+        /* Totais blocos */
+        .totals-row {
+            display: grid;
+            grid-template-columns: 1fr 90px 180px;
+            gap: 0;
+            margin-top: 4px;
+        }
+
+        .totals-row .cell {
+            border: 2px solid #000;
+            padding: 8px 10px;
+            font-size: 12px;
+        }
+
+        .totals-row .cell.label {
+            font-weight: 800;
+            background: #f7f7f7;
+        }
+
+        .totals-row .cell.center {
+            text-align: center;
+        }
+
+        .muted {
+            font-size: 10px;
+            color: #555;
+        }
+
+        /* Rodapé: lacre + assinaturas */
+        .seal {
+            text-align: center;
+            margin-top: 14px;
+            padding-top: 8px;
+            border-top: 1px solid #000;
+            font-size: 11px;
+        }
+
+        .signatures {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+            margin-top: 32px;
+        }
+
+        .sigline {
+            border-top: 1px solid #000;
+            padding-top: 4px;
+            text-align: center;
+            font-size: 11px;
+        }
+
+        .sigmeta {
+            font-size: 10px;
+            color: #333;
+            margin-top: 6px;
+            word-break: break-all;
+        }
+
+        .grid-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+        }
+
+        /* Margens de página */
+        @page {
+            margin: 16mm 12mm 16mm 12mm;
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- HEADER -->
+    <div class="logo-title row">
+        <div class="logo">
+            <img src="{{logoDataUrl}}" alt="Verbo da Vida" />
+        </div>
+        <div class="doc-title">
+            CONTAGEM DE DÍZIMOS<br />E OFERTAS
+        </div>
+    </div>
+
+    <!-- LINHA DE OPÇÕES + DATA/HORA -->
+    <div class="row" style="margin-top:10px;">
+        <div class="options">
+            <div class="opt"><span class="box {{sunBox}}"></span> DOMINGO</div>
+            <div class="opt"><span class="box {{thuBox}}"></span> QUINTA</div>
+            <div class="opt"><span class="box {{satBox}}"></span> SÁBADO</div>
+            <div class="opt">
+                <span class="box {{otherBox}}"></span> OUTROS
+                <span
+                    style="display:inline-block; min-width:140px; border-bottom:1px solid #000; margin-left:8px;">{{otherLabel}}</span>
+            </div>
+        </div>
+        <div class="right-fields">
+            <div class="pill"><span class="label">DATA:</span>{{date}}</div>
+            <div class="pill"><span class="label">HORA:</span>{{time}}</div>
+        </div>
+    </div>
+
+    <!-- NOTAS -->
+    <div class="section">
+        <div class="section-title">NOTAS:</div>
+        <table>
+            <thead>
+                <tr>
+                    <th style="width:30%;">&nbsp;</th>
+                    <th class="center" style="width:20%;">QTDE</th>
+                    <th class="right">TOTAL</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{notesRows}}
+            </tbody>
+        </table>
+
+        <div class="totals-row">
+            <div class="cell label">TOTAL DE NOTAS:</div>
+            <div class="cell right">{{totalNotes}}</div>
+        </div>
+    </div>
+
+    <!-- MOEDAS -->
+    <div class="section">
+        <div class="section-title">MOEDAS:</div>
+        <table>
+            <thead>
+                <tr>
+                    <th style="width:30%;">&nbsp;</th>
+                    <th class="center" style="width:20%;">QTDE</th>
+                    <th class="right">TOTAL</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{coinsRows}}
+            </tbody>
+        </table>
+
+        <div class="totals-row">
+            <div class="cell label">TOTAL DE MOEDAS:</div>
+            <div class="cell right">{{totalCoins}}</div>
+        </div>
+    </div>
+
+    <!-- TOTAL GERAL + ENVELOPES + 15% -->
+    <div class="section grid-2">
+        <div>
+            <div class="totals-row">
+                <div class="cell label">TOTAL GERAL:</div>
+                <div class="cell right">{{grandTotal}}</div>
+            </div>
+            <div class="row" style="margin-top:8px;">
+                <div style="flex:1; border:2px solid #000; padding:6px 10px; border-radius:4px;">
+                    <b style="font-size:12px;">QTDE ENVELOPES:</b> <span style="font-size:12px;">{{envelopes}}</span>
+                </div>
+                <div style="width:140px; border:2px solid #000; padding:6px 10px; border-radius:4px; text-align:right;">
+                    <b style="font-size:12px;">15%</b>
+                    <div style="font-size:12px;">{{titheShare15}}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- NÚMERO DO LACRE -->
+    <div class="seal">NÚMERO DO LACRE<br />
+        <div style="margin-top:6px; font-weight:700;">{{sealNumber}}</div>
+    </div>
+
+    <!-- ASSINATURAS -->
+    <div class="signatures">
+        <div>
+            <div class="sigmeta">
+                Assinado por: {{sig1.name}} — {{sig1.when}} — IP: {{sig1.ip}}<br />
+                Hash: {{sig1.hash}}
+            </div>
+            <div class="sigline">ASSINATURA DIACONO 1</div>
+        </div>
+        <div>
+            <div class="sigmeta">
+                Assinado por: {{sig2.name}} — {{sig2.when}} — IP: {{sig2.ip}}<br />
+                Hash: {{sig2.hash}}
+            </div>
+            <div class="sigline">ASSINATURA DIACONO 2</div>
+        </div>
+    </div>
+
+    <!-- QR E AVISO -->
+    <div class="row" style="margin-top:16px;">
+        <div>
+            <img src="{{verificationQrDataUrl}}" width="120" height="120"
+                style="border:2px solid #000; padding:6px; border-radius:4px;" />
+        </div>
+        <div style="flex:1; margin-left:12px; font-size:11px;">
+            Verifique a autenticidade deste documento em: <b>{{verifyUrl}}</b><br />
+            <span class="muted">Se qualquer valor for alterado após as assinaturas, a verificação indicará integridade
+                comprometida.</span>
+        </div>
+    </div>
+
+</body>
+
+</html>

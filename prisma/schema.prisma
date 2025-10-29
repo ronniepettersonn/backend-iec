@@ -77,7 +77,8 @@ model User {
   email            String    @unique
   passwordHash     String
   avatar           String?
-  role             Role      @default(MEMBER)
+  //role             Role      @default(MEMBER) // ← mantém
+  roles            Role[]
   createdAt        DateTime  @default(now())
   active           Boolean   @default(true)
   firstLogin       Boolean   @default(true)
@@ -115,6 +116,10 @@ model User {
   Post     Post[]
   churchId String
   church   Church @relation(fields: [churchId], references: [id])
+
+  OfferingCount OfferingCount[]
+
+  OfferingSignature OfferingSignature[]
 }
 
 enum Role {
@@ -123,6 +128,7 @@ enum Role {
   MEMBER
   PASTOR
   FINANCE
+  DIACON
 }
 
 model Transaction {
@@ -901,6 +907,8 @@ model Church {
   OverlapRule        OverlapRule[]
   ScheduleAssignment ScheduleAssignment[]
   ScheduleMember     ScheduleMember[]
+
+  OfferingCount OfferingCount[]
 }
 
 enum ChurchStatus {
@@ -944,4 +952,77 @@ model BankAccount {
   transactions Transaction[]
 
   church Church @relation(fields: [churchId], references: [id])
+}
+
+// Implementação da conferencia de dizimos e geração do formulário no padrão Verbo da Vida
+
+// —— Enums ——
+enum OfferingItemKind {
+  NOTE
+  COIN
+}
+
+enum ServiceType {
+  SUNDAY
+  THURSDAY
+  SATURDAY
+  OTHER
+}
+
+enum OfferingStatus {
+  draft
+  finalized
+}
+
+// —— Models ——
+model OfferingCount {
+  id           String         @id @default(uuid())
+  churchId     String
+  church       Church         @relation(fields: [churchId], references: [id])
+  serviceType  ServiceType
+  serviceDate  DateTime
+  sealNumber   String?
+  envelopes    Int            @default(0)
+  notesTotal   Decimal        @default(0) @db.Decimal(14, 2)
+  coinsTotal   Decimal        @default(0) @db.Decimal(14, 2)
+  grandTotal   Decimal        @default(0) @db.Decimal(14, 2)
+  titheShare15 Decimal        @default(0) @db.Decimal(14, 2)
+  status       OfferingStatus @default(draft)
+  createdById  String
+  createdBy    User           @relation(fields: [createdById], references: [id])
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  items      OfferingItem[]
+  signatures OfferingSignature[]
+
+  @@index([churchId, serviceDate])
+}
+
+model OfferingItem {
+  id              String           @id @default(uuid())
+  offeringCountId String
+  kind            OfferingItemKind
+  value           Decimal          @db.Decimal(10, 2) // 0.05, 1, 2, 5, 10, ...
+  quantity        Int              @default(0)
+  lineTotal       Decimal          @default(0) @db.Decimal(14, 2)
+
+  offering OfferingCount @relation(fields: [offeringCountId], references: [id])
+
+  @@unique([offeringCountId, kind, value]) // 1 linha por denominação
+  @@index([offeringCountId, kind, value])
+}
+
+model OfferingSignature {
+  id              String   @id @default(uuid())
+  offeringCountId String
+  userId          String
+  user            User     @relation(fields: [userId], references: [id])
+  ipAddress       String?
+  hash            String
+  signedAt        DateTime @default(now())
+
+  offering OfferingCount @relation(fields: [offeringCountId], references: [id])
+
+  @@unique([offeringCountId, userId]) // impõe 1 assinatura por diácono
 }

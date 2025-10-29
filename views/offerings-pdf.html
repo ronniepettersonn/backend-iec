@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="utf-8" />
+    <title>Conferência de Dízimos e Ofertas</title>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+            color: #111;
+            margin: 0;
+            padding: 24px;
+        }
+
+        .title {
+            text-align: center;
+            font-weight: 700;
+            font-size: 18px;
+            margin-bottom: 8px;
+        }
+
+        .subtitle {
+            text-align: center;
+            font-size: 12px;
+            color: #444;
+            margin-bottom: 16px;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+
+        .field {
+            border: 1px solid #222;
+            padding: 8px;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+
+        .field b {
+            display: block;
+            font-size: 11px;
+            color: #333;
+            margin-bottom: 4px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 8px;
+            font-size: 12px;
+        }
+
+        th,
+        td {
+            border: 1px solid #222;
+            padding: 6px 8px;
+            text-align: left;
+        }
+
+        th {
+            background: #f3f3f3;
+        }
+
+        .right {
+            text-align: right;
+        }
+
+        .section-title {
+            margin-top: 14px;
+            font-weight: 700;
+            font-size: 13px;
+        }
+
+        .totals {
+            margin-top: 10px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .totals .box {
+            border: 1px solid #222;
+            padding: 10px;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+
+        .signatures {
+            margin-top: 16px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 14px;
+        }
+
+        .sigbox {
+            border: 1px dashed #333;
+            padding: 10px;
+            border-radius: 4px;
+            font-size: 11px;
+        }
+
+        .sigbox .name {
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+
+        .footer {
+            margin-top: 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 16px;
+        }
+
+        .qr {
+            border: 1px solid #222;
+            padding: 6px;
+            border-radius: 4px;
+        }
+
+        .muted {
+            color: #555;
+            font-size: 10px;
+            margin-top: 6px;
+        }
+
+        .hash {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            word-break: break-all;
+            font-size: 10px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="title">Conferência de Dízimos e Ofertas</div>
+    <div class="subtitle">{{churchName}} — ID: {{id}}</div>
+
+    <div class="grid">
+        <div class="field"><b>Tipo de Culto</b>{{cultType}}</div>
+        <div class="field"><b>Data e Hora</b>{{date}} — {{time}}</div>
+        <div class="field"><b>Nº do Lacre</b>{{sealNumber}}</div>
+        <div class="field"><b>Qtd. Envelopes</b>{{envelopes}}</div>
+    </div>
+
+    <div class="section-title">Contagem de Notas</div>
+    <table>
+        <thead>
+            <tr>
+                <th>Denominação</th>
+                <th class="right">Quantidade</th>
+                <th class="right">Total</th>
+            </tr>
+        </thead>
+        <tbody>
+            {{notesRows}}
+        </tbody>
+    </table>
+
+    <div class="section-title">Contagem de Moedas</div>
+    <table>
+        <thead>
+            <tr>
+                <th>Denominação</th>
+                <th class="right">Quantidade</th>
+                <th class="right">Total</th>
+            </tr>
+        </thead>
+        <tbody>
+            {{coinsRows}}
+        </tbody>
+    </table>
+
+    <div class="totals">
+        <div class="box">
+            <div><b>Total de Notas:</b> {{totalNotes}}</div>
+            <div><b>Total de Moedas:</b> {{totalCoins}}</div>
+            <div><b>Total Geral:</b> {{grandTotal}}</div>
+            <div><b>Repasse 15%:</b> {{titheShare15}}</div>
+        </div>
+        <div class="box">
+            <div><b>Status:</b> {{status}}</div>
+            <div><b>Criado por:</b> {{createdBy}}</div>
+            <div><b>Criado em:</b> {{createdAt}}</div>
+            <div><b>Assinaturas:</b> {{signaturesCount}} / 2</div>
+        </div>
+    </div>
+
+    <div class="section-title">Assinaturas</div>
+    <div class="signatures">
+        <div class="sigbox">
+            <div class="name">Diácono 1: {{sig1.name}}</div>
+            <div>Assinado em: {{sig1.when}} — IP: {{sig1.ip}}</div>
+            <div>Hash: <span class="hash">{{sig1.hash}}</span></div>
+        </div>
+        <div class="sigbox">
+            <div class="name">Diácono 2: {{sig2.name}}</div>
+            <div>Assinado em: {{sig2.when}} — IP: {{sig2.ip}}</div>
+            <div>Hash: <span class="hash">{{sig2.hash}}</span></div>
+        </div>
+    </div>
+
+    <div class="footer">
+        <div class="qr">
+            <img src="{{verificationQrDataUrl}}" width="120" height="120" />
+        </div>
+        <div style="flex:1">
+            <div><b>Verificação:</b> Escaneie o QR para conferir a integridade em {{verifyUrl}}</div>
+            <div class="muted">Se o conteúdo for alterado após as assinaturas, o hash acima não coincidirá e a página de
+                verificação indicará integridade comprometida.</div>
+        </div>
+    </div>
+</body>
+
+</html>
