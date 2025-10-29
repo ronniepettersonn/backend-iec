@@ -1,3 +1,4 @@
+import './bootstrap/express-augment'
 import express from 'express'
 import cors from 'cors'
 import dotenv from 'dotenv'
@@ -36,6 +37,8 @@ import churchRoutes from './routes/church.routes'
 import activeModuleRoutes from './routes/activeModule.routes'
 import bankAccountRoutes from './routes/banckAccount.routes'
 import offeringsRoutes from "./routes/offerings.routes"
+
+
 
 dotenv.config()
 

@@ -1,21 +1,17 @@
-//import { JwtPayload } from 'jsonwebtoken';
-
 // src/@types/express/index.d.ts
+import type { Role } from '../../types/roles'
+
+export {} // mantém o arquivo como módulo
 
 declare global {
   namespace Express {
-    interface Request {
-      userId?: string;
-      user?: {
-        id: string;
-        churchId: string;
-        role: string;
-      };
-      churchId?: string
-      file?: Express.Multer.File;
-      files?: Express.Multer.File[];
+    interface UserPayload {
+      id: string
+      churchId: string
+      roles?: Role[]
+      role?: Role
     }
+
+
   }
 }
-
-export {}; // 👈 ESSENCIAL

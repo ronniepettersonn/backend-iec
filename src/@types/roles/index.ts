@@ -3,4 +3,6 @@ export enum Role {
   PASTOR = 'PASTOR',
   LEADER = 'LEADER',
   MEMBER = 'MEMBER',
+  FINANCE = 'FINANCE',
+  DIACON = 'DIACON'
 }
