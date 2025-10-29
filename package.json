@@ -11,7 +11,8 @@
     "seed": "ts-node src/prisma/seed.ts",
     "build": "npm run generate && tsc",
     "backfill:status": "ts-node --transpile-only scripts/backfill-recurrence-status.ts",
-    "backfill:frequency": "ts-node --transpile-only scripts/backfill-frequency.ts"
+    "backfill:frequency": "ts-node --transpile-only scripts/backfill-frequency.ts",
+    "postbuild": "mkdir -p dist/templates && cp -R src/templates/* dist/templates/"
   },
   "keywords": [],
   "author": "",
