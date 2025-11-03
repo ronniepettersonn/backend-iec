@@ -37,6 +37,7 @@ import churchRoutes from './routes/church.routes'
 import activeModuleRoutes from './routes/activeModule.routes'
 import bankAccountRoutes from './routes/banckAccount.routes'
 import offeringsRoutes from "./routes/offerings.routes"
+import { startCleanupTokensCron } from './jobs/cleanupTokens'
 
 
 
@@ -85,6 +86,7 @@ app.use('/upload', uploadRoutes)
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec))
 
 startRecurrenceStatusJob()
+startCleanupTokensCron()
 
 app.listen(PORT, () => {
   console.log(`Servidor rodando em http://localhost:${PORT}`)

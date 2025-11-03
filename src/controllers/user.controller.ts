@@ -8,25 +8,28 @@ import { supabase } from '../services/supabaseClient.service'
 import crypto from 'crypto';
 import { sendEmail } from '../services/email.service';
 import { sendTemplatedEmail } from '../services/sendTemplateEmail.service'
+import { createSetPasswordToken } from '../services/setPasswordToken.service'
 
 
 export const createUserByAdmin = async (req: Request, res: Response) => {
   try {
-    const { name, email, role } = req.body;
-    const churchId = req.user?.churchId;
+    const { name, email, role } = req.body
+    const churchId = req.user?.churchId
 
     if (!churchId) {
-      return res.status(403).json({ error: 'Admin sem igreja vinculada' });
+      return res.status(403).json({ error: 'Admin sem igreja vinculada' })
     }
 
-    const existing = await prisma.user.findUnique({ where: { email } });
+    const existing = await prisma.user.findUnique({ where: { email } })
     if (existing) {
-      return res.status(400).json({ error: 'E-mail já está em uso' });
+      return res.status(400).json({ error: 'E-mail já está em uso' })
     }
 
-    const avatarUrl = `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(name)}&fontFamily=Helvetica&fontSize=36`
+    const avatarUrl = `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(
+      name
+    )}&fontFamily=Helvetica&fontSize=36`
 
-    // 🔐 Senha temporária
+    // 🔐 Senha temporária (se seu schema exige não-nulo)
     const hashedPassword = await bcrypt.hash('temp1234', 10)
 
     // 👤 Cria primeiro o membro
@@ -35,8 +38,8 @@ export const createUserByAdmin = async (req: Request, res: Response) => {
         fullName: name,
         email,
         avatarUrl,
-        churchId
-      }
+        churchId,
+      },
     })
 
     // 👤 Cria o usuário já vinculado ao membro
@@ -44,46 +47,44 @@ export const createUserByAdmin = async (req: Request, res: Response) => {
       data: {
         name,
         email,
-        roles: role,
+        roles: role, // se já é array, manter; se for string, adaptar antes
         avatar: avatarUrl,
         passwordHash: hashedPassword,
         churchId,
         firstLogin: true,
-        memberId: member.id
-      }
+        memberId: member.id,
+      },
     })
 
-    // 🔑 Geração do token
-    const token = crypto.randomBytes(32).toString('hex');
-    const expiry = new Date(Date.now() + 1000 * 60 * 60); // 1h
+    // 🔑 Geração do token curto (1h) via PasswordToken + JWT
+    const token = await createSetPasswordToken(user.id)
 
-    await prisma.user.update({
-      where: { id: user.id },
-      data: {
-        resetToken: token,
-        resetTokenExpiry: expiry
-      }
-    })
+    // base do app (coloque no .env para diferentes ambientes)
+    const appUrl = process.env.APP_URL || 'https://app.verboigarape.com.br'
+    // ⚠️ use query string para evitar problemas de path com JWT (., /, =)
+    const url = `${appUrl}/define-password/${encodeURIComponent(token)}`
 
-    const url = `https://app.verboigarape.com.br/define-password/${token}`
-
+    // 📧 Envia e-mail com seu template atual
     await sendTemplatedEmail({
       to: email,
       subject: 'Defina sua senha no Lightra',
       templateName: 'define-password',
       variables: {
-        logoUrl: 'https://www.verboigarape.com.br/_next/image?url=%2F_next%2Fstatic%2Fmedia%2Flogo.481d02bd.png&w=750&q=75',
+        logoUrl:
+          'https://www.verboigarape.com.br/_next/image?url=%2F_next%2Fstatic%2Fmedia%2Flogo.481d02bd.png&w=750&q=75',
         title: 'Defina sua senha',
         message: `Olá ${name}, você foi cadastrado(a) no Lightra. Para definir sua senha, clique no botão abaixo:`,
         buttonUrl: url,
-        buttonText: 'Definir minha senha'
-      }
+        buttonText: 'Definir minha senha',
+      },
     })
 
-    res.status(201).json({ message: 'Usuário e membro criados com sucesso', userId: user.id })
+    return res
+      .status(201)
+      .json({ message: 'Usuário e membro criados com sucesso', userId: user.id })
   } catch (error) {
-    console.error('[createUserByAdmin]', error);
-    res.status(500).json({ error: 'Erro ao criar usuário' })
+    console.error('[createUserByAdmin]', error)
+    return res.status(500).json({ error: 'Erro ao criar usuário' })
   }
 }
 

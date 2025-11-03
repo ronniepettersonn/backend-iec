@@ -10,6 +10,9 @@ import { createPasswordResetToken } from '../services/token.service'
 import { sendEmail } from '../services/email.service'
 import { sendNotification } from '../utils/sendNotification'
 import { OAuth2Client } from 'google-auth-library'
+import { consumeSetPasswordToken, validateSetPasswordToken } from '../services/setPasswordToken.service'
+import { sendTemplatedEmail } from '../services/sendTemplateEmail.service'
+import { consumeResetPasswordToken, validateResetPasswordToken } from '../services/resetPasswordToken.service'
 
 const JWT_SECRET = process.env.JWT_SECRET || 'defaultsecret' // ideal usar variável de ambiente
 
@@ -94,7 +97,8 @@ export const login = async (req: Request, res: Response) => {
         role: user.roles,
         firstLogin: user.firstLogin,
         authority: user.roles,
-        avatar: user.avatar
+        avatar: user.avatar,
+        memberId: user.memberId
       }
     })
   } catch (error) {
@@ -214,36 +218,32 @@ export const loginWithGoogle = async (req: Request, res: Response) => {
 
   export const definirSenha = async (req: Request, res: Response) => {
   try {
-    const { token, newPassword } = req.body;
+    const { token, newPassword } = req.body as { token: string; newPassword: string };
 
     if (!token || !newPassword) {
       return res.status(400).json({ error: 'Token e nova senha são obrigatórios.' });
     }
 
-    const user = await prisma.user.findFirst({
-      where: {
-        resetToken: token,
-        resetTokenExpiry: {
-          gte: new Date(),
-        },
-      },
-    });
-
-    if (!user) {
+    // ✅ valida o JWT curto e checa se está no banco, não usado e não expirado
+    const v = await validateSetPasswordToken(token);
+    console.log(v, 'TOKEN VALIDO')
+    console.log(token, 'TOKEN')
+    if (!v.ok) {
       return res.status(400).json({ error: 'Token inválido ou expirado.' });
     }
 
+    // ✅ atualiza a senha do usuário
     const hashedPassword = await bcrypt.hash(newPassword, 10);
-
     await prisma.user.update({
-      where: { id: user.id },
+      where: { id: v.userId },
       data: {
         passwordHash: hashedPassword,
-        resetToken: null,
-        resetTokenExpiry: null,
         firstLogin: false,
       },
     });
+
+    // ✅ marca o token como usado (single-use)
+    await consumeSetPasswordToken(v.jti);
 
     return res.json({ message: 'Senha definida com sucesso. Você já pode fazer login.' });
   } catch (error) {
@@ -277,28 +277,49 @@ export const resetPassword = async (req: Request, res: Response) => {
 }
 
 export const requestPasswordReset = async (req: Request, res: Response) => {
-  const { email } = req.body
+  const { email } = req.body as { email: string };
 
-  const user = await prisma.user.findUnique({ where: { email } })
-
+  // Se preferir não vazar existência, troque por resposta genérica
+  const user = await prisma.user.findUnique({ where: { email } });
   if (!user) {
-    return res.status(404).json({ error: 'Usuário não encontrado' })
+    return res.status(404).json({ error: 'Usuário não encontrado' });
   }
 
-  const token = await createPasswordResetToken(user.id)
+  const token = await createPasswordResetToken(user.id);
+  const appUrl = process.env.APP_URL || 'https://app.verboigarape.com.br';
+  const resetLink = `${appUrl}/reset-password/${encodeURIComponent(token)}`;
 
-  const resetLink = `http://localhost:5173/reset-password?token=${token}`
+  const displayName = user.name?.trim() || email.split('@')[0];
 
-  await sendEmail({
+  await sendTemplatedEmail({
     to: user.email,
     subject: 'Redefinição de senha',
-    html: `
-      <p>Olá ${user.name},</p>
-      <p>Recebemos um pedido para redefinir sua senha. Clique no link abaixo:</p>
-      <p><a href="${resetLink}">Redefinir senha</a></p>
-      <p>Se não foi você, ignore este e-mail.</p>
-    `
-  })
+    templateName: 'define-password', // ou 'define-password' se quiser reutilizar
+    variables: {
+      logoUrl:
+        'https://www.verboigarape.com.br/_next/image?url=%2F_next%2Fstatic%2Fmedia%2Flogo.481d02bd.png&w=750&q=75',
+      title: 'Redefinir senha',
+      message: `Olá ${displayName}, clique no botão abaixo para redefinir sua senha:`,
+      buttonUrl: resetLink,
+      buttonText: 'Redefinir minha senha',
+    },
+  });
 
-  return res.json({ message: 'E-mail de redefinição enviado' })
-}
+  return res.json({ message: 'E-mail de redefinição enviado' });
+};
+
+export const completePasswordReset = async (req: Request, res: Response) => {
+  const { token, newPassword } = req.body as { token: string; newPassword: string };
+  if (!token || !newPassword) {
+    return res.status(400).json({ error: 'Token e nova senha são obrigatórios.' });
+  }
+
+  const v = await validateResetPasswordToken(token);
+  if (!v.ok) return res.status(400).json({ error: 'Token inválido ou expirado.' });
+
+  const hash = await bcrypt.hash(newPassword, 10);
+  await prisma.user.update({ where: { id: v.userId }, data: { passwordHash: hash } });
+
+  await consumeResetPasswordToken(v.jti);
+  return res.json({ ok: true, message: 'Senha redefinida com sucesso.' });
+};

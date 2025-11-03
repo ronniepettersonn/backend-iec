@@ -120,6 +120,8 @@ model User {
   OfferingCount OfferingCount[]
 
   OfferingSignature OfferingSignature[]
+
+  PasswordToken PasswordToken[]
 }
 
 enum Role {
@@ -1025,4 +1027,24 @@ model OfferingSignature {
   offering OfferingCount @relation(fields: [offeringCountId], references: [id])
 
   @@unique([offeringCountId, userId]) // impõe 1 assinatura por diácono
+}
+
+enum TokenType {
+  SET_PASSWORD
+  RESET_PASSWORD
+}
+
+model PasswordToken {
+  id        String    @id @default(uuid())
+  userId    String
+  type      TokenType
+  jti       String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  sentCount Int       @default(1)
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId, type])
 }
